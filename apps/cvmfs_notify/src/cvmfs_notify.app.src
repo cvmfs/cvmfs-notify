@@ -1,0 +1,20 @@
+{application, cvmfs_notify,
+ [{description, "CVMFS Notification System"},
+  {vsn, "0.1.0"},
+  {registered, [front_end]},
+  {mod, { cvmfs_notify_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    lager,
+    cowboy
+   ]},
+  {env,[]},
+  {modules, [
+             base_handler,
+             front_end,
+             util
+            ]},
+
+  {maintainers, []}
+ ]}.

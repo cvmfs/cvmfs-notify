@@ -1,0 +1,6 @@
+-sname cvmfs_notify
+
+-setcookie cvmfs
+
++K true
++A30
