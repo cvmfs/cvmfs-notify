@@ -1,0 +1,15 @@
+# Language doesn't matter in this case, since we are building in Docker
+language: c++
+
+services:
+  - docker
+
+notifications:
+  email:
+    recipients:
+      - mail@radupopescu.net
+    on_success: change
+    on_failure: always
+
+script:
+  - ./ci/travis_main.sh

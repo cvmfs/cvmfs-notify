@@ -1,0 +1,13 @@
+image: radupopescu/erlang-libsodium:20.2
+
+stages:
+  - test
+
+test_and_package:
+  stage: test
+  tags:
+    - docker
+  script:
+    - rebar3 dialyzer
+    - rebar3 ct
+    - rebar3 as prod tar
