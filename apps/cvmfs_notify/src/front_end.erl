@@ -11,7 +11,7 @@
 
 -define(API_VERSION, 1).
 -define(API_ROOT, "/api/v" ++ integer_to_list(?API_VERSION)).
--define(CONNECTION_TIMEOUT, 7200).
+-define(CONNECTION_TIMEOUT, 30000). % 30sec
 
 %%--------------------------------------------------------------------
 %% @doc
