@@ -63,7 +63,7 @@ end_per_testcase(_TestCase, Config) ->
 
 check_dummy(Config) ->
     ConnPid = conn_pid(Config),
-    gun:ws_upgrade(ConnPid, ?API_ROOT),
+    gun:ws_upgrade(ConnPid, ?API_ROOT ++ "/notify"),
     receive
         {gun_ws_upgrade, ConnPid, ok, _Headers} ->
             gun:ws_send(ConnPid, {text, "Hello, server!"}),

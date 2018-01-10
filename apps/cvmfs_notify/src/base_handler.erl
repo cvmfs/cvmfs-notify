@@ -15,9 +15,11 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Handles requests for the /api resource
+%% Handles requests for the /notify end point
 %%
-%% Return a list of available resources.
+%% If the message signature checks out, the connection is updated to
+%% Websockets. Any future activity for the connection will be handled
+%% by one of the websocket_*** callbacks.
 %%
 %% @end
 %%--------------------------------------------------------------------
