@@ -50,13 +50,56 @@ init(Req0, State) ->
 
 websocket_init(State) ->
     lager:info("Websocket upgrade successful - State: ~p", [State]),
-    {ok, State, hibernate}.
+    {ok, RepoIdleTimeout} = application:get_env(cvmfs_notify,
+                                                repo_idle_timeout),
+    {ok, #{repo_idle_timeout => RepoIdleTimeout}, hibernate}.
 
-websocket_handle(Frame, State) ->
+websocket_handle({binary, Msg} = Frame, #{repo_idle_timeout := Timeout} = State) ->
     lager:info("Frame received: ~p, state: ~p", [Frame, State]),
-    {reply, {text, <<"Hello, client!">>}, State, hibernate}.
-    %%{ok, State, hibernate}.
+    Reply = case jsx:is_json(Msg) of
+                true ->
+                    case jsx:decode(Msg, [return_maps]) of
+                        #{<<"repo">> := Repo,
+                          <<"min_revision">> := MinRevision} ->
+                            Ref = make_ref(),
+                            Id = {self(), Ref},
+                            case event_manager:subscribe(Id, Repo, MinRevision) of
+                                ok ->
+                                    %% Here we wait
+                                    case wait(Id, Timeout) of
+                                        {repo_updated, Revision, RootHash} ->
+                                            #{<<"status">> => <<"ok">>,
+                                              <<"revision">> => Revision,
+                                              <<"root_hash">> => RootHash};
+                                        repo_idle ->
+                                            event_manager:unsubscribe(Ref, Repo),
+                                            #{<<"status">> => <<"idle">>,
+                                              <<"reason">> => <<"no repo activity until timeout">>}
+                                    end;
+                                {error, Reason} ->
+                                    #{<<"status">> => <<"error">>,
+                                      <<"reason">> => Reason}
+                            end;
+                        _ ->
+                            #{<<"status">> => <<"error">>,
+                              <<"reason">> => <<"invalid subscription message">>}
+                    end;
+                false ->
+                    #{<<"status">> => <<"error">>,
+                      <<"reason">> => <<"message is not valid JSON">>}
+            end,
+    {reply, {binary, jsx:encode(Reply)}, State, hibernate}.
 
 websocket_info(Info, State) ->
     lager:info("Erlang message received: ~p, state: ~p", [Info, State]),
     {ok, State, hibernate}.
+
+
+wait(Ref, Timeout) ->
+    receive
+        {Ref, Activity} ->
+            Activity
+    after Timeout ->
+            repo_idle
+    end.
+

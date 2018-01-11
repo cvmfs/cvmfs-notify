@@ -33,10 +33,16 @@ init(Req0 = #{method := <<"POST">>}, State) ->
                                   <<"revision">> := Revision,
                                   <<"root_hash">> := RootHash,
                                   <<"api_version">> := _} ->
-                                    lager:info("Trigger received: repo: ~p, revision: ~p, root_hash: ~p",
-                                               [Repo, Revision, RootHash]),
-                                    Rep  = #{<<"status">> => <<"ok">>},
-                                    {200, Rep, Req1};
+                                    case event_manager:trigger(Repo, Revision, RootHash) of
+                                        ok ->
+                                            Rep = #{<<"status">> => <<"ok">>},
+                                            {200, Rep, Req1};
+                                        {error, Reason} ->
+                                            lager:error("Trigger failed: ~p", [Reason]),
+                                            Rep = #{<<"status">> => <<"error">>,
+                                                    <<"reason">> => Reason},
+                                            {400, Rep, Req1}
+                                    end;
                                 Other ->
                                     lager:error("Could not decode trigger request body: ~p", [Other]),
                                     {400, #{<<"status">> => <<"error">>,
