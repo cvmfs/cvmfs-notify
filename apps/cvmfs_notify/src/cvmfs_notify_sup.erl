@@ -30,15 +30,15 @@ init(_Args) ->
     SupervisorSpecs = #{strategy => one_for_all,
                         intensity => 5,
                         period => 5},
-    %% WorkerSpecs = [
-    %%   #{id => cvmfs_auth,
-    %%     start => {cvmfs_auth, start_link, [{Repos, Keys}]},
-    %%     restart => permanent,
-    %%     shutdown => 2000,
-    %%     type => worker,
-    %%     modules => [cvmfs_auth]}
-    %%  ],
-    {ok, {SupervisorSpecs, []} }.
+    WorkerSpecs = [
+      #{id => event_manager,
+        start => {event_manager, start_link, []},
+        restart => permanent,
+        shutdown => 2000,
+        type => worker,
+        modules => [event_manager]}
+     ],
+    {ok, {SupervisorSpecs, WorkerSpecs} }.
 
 %%====================================================================
 %% Internal functions
