@@ -10,7 +10,7 @@
 -module(front_end_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("proper/include/proper.hrl").
+%%-include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, groups/0, init_per_suite/1, end_per_suite/1,
