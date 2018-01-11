@@ -176,11 +176,78 @@ code_change(OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-p_subscribe(_Id, _Repo, _MinRevision, State) ->
-    {ok, State}.
+p_subscribe(Id, Repo, MinRevision, State) ->
+    % Retrieve the subscription information for Repo, or insert a new item
+    RepoState = maps:get(Repo, State, maps:new()),
 
-p_unsubscribe(_Id, _Repo, State) ->
-    {ok, State}.
+    Subscriptions = maps:get(subscriptions, RepoState, maps:new()),
 
-p_trigger(_Repo, _Revision, _RootHash, State) ->
-    {ok, State}.
+    % Retrieve the current revision of the repo
+    NewRepoState = case maps:is_key(revision, RepoState) of
+                   false ->
+                       % Insert Id to the list of subscribers for Repo
+                       NewSubscriptions = maps:put(Id, MinRevision, Subscriptions),
+
+                       % Update and return new state
+                       maps:update(subscriptions, NewSubscriptions, RepoState);
+                   true ->
+                           Revision = maps:get(revision, RepoState),
+                           case Revision >= MinRevision of
+                               % If the current revision is already >= MinRevision, notify Id
+                               % and skip adding it to the list of subscribers
+                               true ->
+                                   {Pid, Ref} = Id,
+                                   Pid ! {Ref, {repo_updated, Revision, maps:get(root_hash, RepoState)}},
+                                   RepoState;
+                               % If the current revision is < MinRevision, add Id to the list
+                               % of subscribers
+                               false ->
+                                   NewSubscriptions = maps:put(Id, MinRevision, Subscriptions),
+                                   maps:update(subscriptions, NewSubscriptions, RepoState)
+                           end
+               end,
+
+    {ok, maps:update(Repo, NewRepoState, State)}.
+
+p_unsubscribe(Id, Repo, State) ->
+    % Retrieve the subscription information for Repo
+    RepoState = maps:get(Repo, State),
+    Subscriptions = maps:get(subscriptions, RepoState, maps:new()),
+    NewSubscriptions = case maps:is_key(Id, Subscriptions) of
+                           true ->
+                               maps:remove(Id, Subscriptions);
+                           false ->
+                               Subscriptions
+                       end,
+    NewRepoState = maps:update(subscriptions, NewSubscriptions, RepoState),
+
+    {ok, maps:update(Repo, NewRepoState, State)}.
+
+p_trigger(Repo, Revision, RootHash, State) ->
+    % Retrieve the subscription information for Repo, or insert a new item
+    RepoState = maps:get(Repo, State, maps:new()),
+
+    % Inspect subscriptions, notify and remove if needed
+    Subscriptions = maps:get(subscriptions, RepoState, maps:new()),
+    Filter = fun(Id, MinRevision) ->
+                     case Revision >= MinRevision of
+                         % A larger revision than MinRevision has arrived. Notify the subscriber
+                         % and remove it from the list
+                         true ->
+                             {Pid, Ref} = Id,
+                             Pid ! {Ref, {repo_updated, Revision, RootHash}},
+                             false;
+                         % The new revision is still lower than the MinRevision asked by the
+                         % subscriber; Leave the subscriber in the list
+                         false ->
+                             true
+                     end
+             end,
+
+    NewSubscriptions = maps:filter(Filter, Subscriptions),
+
+    NewRepoState = RepoState#{revision => Revision,
+                              root_hash => RootHash,
+                              subscriptions => Subscriptions},
+
+    {ok, maps:update(Repo, NewRepoState, State)}.
