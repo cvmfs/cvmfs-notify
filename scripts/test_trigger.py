@@ -37,7 +37,7 @@ def main():
 
     url = args[0]
     repo_name = args[1]
-    revision = args[2]
+    revision = int(args[2])
     root_hash = args[3]
 
     if options.verbose:
