@@ -13,7 +13,7 @@ async def hello(uri, frame):
         print("Frame sent: {}".format(frame))
         await websocket.send(frame)
         reply = await websocket.recv()
-        print("Frame received: {}".format(json.loads(reply)))
+        print("Frame received: {}".format(json.loads(reply.decode())))
         # try:
         #     pong = await websocket.ping()
         #     await asyncio.wait_for(pong, timeout=10)
