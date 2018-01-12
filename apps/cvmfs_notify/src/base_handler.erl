@@ -66,7 +66,7 @@ websocket_handle({binary, Msg} = Frame, #{repo_idle_timeout := Timeout} = State)
                             case event_manager:subscribe(Id, Repo, MinRevision) of
                                 ok ->
                                     %% Here we wait
-                                    case wait(Id, Timeout) of
+                                    case wait(Ref, Timeout) of
                                         {repo_updated, Revision, RootHash} ->
                                             #{<<"status">> => <<"ok">>,
                                               <<"revision">> => Revision,
