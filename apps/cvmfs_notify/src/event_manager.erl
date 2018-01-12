@@ -189,7 +189,7 @@ p_subscribe(Id, Repo, MinRevision, State) ->
                        NewSubscriptions = maps:put(Id, MinRevision, Subscriptions),
 
                        % Update and return new state
-                       maps:update(subscriptions, NewSubscriptions, RepoState);
+                       maps:put(subscriptions, NewSubscriptions, RepoState);
                    true ->
                            Revision = maps:get(revision, RepoState),
                            case Revision >= MinRevision of
@@ -203,11 +203,11 @@ p_subscribe(Id, Repo, MinRevision, State) ->
                                % of subscribers
                                false ->
                                    NewSubscriptions = maps:put(Id, MinRevision, Subscriptions),
-                                   maps:update(subscriptions, NewSubscriptions, RepoState)
+                                   maps:put(subscriptions, NewSubscriptions, RepoState)
                            end
                end,
 
-    {ok, maps:update(Repo, NewRepoState, State)}.
+    {ok, maps:put(Repo, NewRepoState, State)}.
 
 p_unsubscribe(Id, Repo, State) ->
     % Retrieve the subscription information for Repo
@@ -219,9 +219,9 @@ p_unsubscribe(Id, Repo, State) ->
                            false ->
                                Subscriptions
                        end,
-    NewRepoState = maps:update(subscriptions, NewSubscriptions, RepoState),
+    NewRepoState = maps:put(subscriptions, NewSubscriptions, RepoState),
 
-    {ok, maps:update(Repo, NewRepoState, State)}.
+    {ok, maps:put(Repo, NewRepoState, State)}.
 
 p_trigger(Repo, Revision, RootHash, State) ->
     % Retrieve the subscription information for Repo, or insert a new item
@@ -248,6 +248,6 @@ p_trigger(Repo, Revision, RootHash, State) ->
 
     NewRepoState = RepoState#{revision => Revision,
                               root_hash => RootHash,
-                              subscriptions => Subscriptions},
+                              subscriptions => NewSubscriptions},
 
-    {ok, maps:update(Repo, NewRepoState, State)}.
+    {ok, maps:put(Repo, NewRepoState, State)}.
