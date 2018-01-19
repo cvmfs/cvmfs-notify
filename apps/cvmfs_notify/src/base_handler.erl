@@ -54,32 +54,32 @@ websocket_init(State) ->
 
 websocket_handle({binary, Msg} = Frame, State) ->
     lager:info("Frame received from client: ~p, state: ~p", [Frame, State]),
-    Reply = case jsx:is_json(Msg) of
-                true ->
-                    case jsx:decode(Msg, [return_maps]) of
-                        #{<<"repo">> := Repo,
-                          <<"min_revision">> := MinRevision} ->
-                            case event_manager:subscribe(self(), Repo, MinRevision) of
-                                ok ->
-                                    {ok, State, hibernate};
-                                {error, Reason} ->
-                                    {reply, {binary,
-                                             jsx:encode(#{<<"status">> => <<"error">>,
-                                                          <<"reason">> => Reason})},
-                                     State, hibernate}
-                            end;
-                        _ ->
+    case jsx:is_json(Msg) of
+        true ->
+            case jsx:decode(Msg, [return_maps]) of
+                #{<<"repo">> := Repo,
+                  <<"min_revision">> := MinRevision} ->
+                    case event_manager:subscribe(self(), Repo, MinRevision) of
+                        ok ->
+                            {ok, State, hibernate};
+                        {error, Reason} ->
                             {reply, {binary,
                                      jsx:encode(#{<<"status">> => <<"error">>,
-                                                  <<"reason">> => <<"invalid subscription message">>})},
+                                                  <<"reason">> => Reason})},
                              State, hibernate}
                     end;
-                false ->
+                _ ->
                     {reply, {binary,
                              jsx:encode(#{<<"status">> => <<"error">>,
-                                          <<"reason">> => <<"message is not valid JSON">>})},
+                                          <<"reason">> => <<"invalid subscription message">>})},
                      State, hibernate}
-            end.
+            end;
+        false ->
+            {reply, {binary,
+                     jsx:encode(#{<<"status">> => <<"error">>,
+                                  <<"reason">> => <<"message is not valid JSON">>})},
+             State, hibernate}
+    end.
 
 websocket_info({repo_updated, Revision, RootHash} = Info, State) ->
     lager:info("Repository message received: ~p, state: ~p", [Info, State]),
