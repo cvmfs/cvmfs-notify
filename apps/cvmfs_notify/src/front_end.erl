@@ -12,6 +12,8 @@
 -define(API_VERSION, 1).
 -define(API_ROOT, "/api/v" ++ integer_to_list(?API_VERSION)).
 
+-define(TIMEOUT, 10000).
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the front-end HTTP listener process.
@@ -24,15 +26,13 @@ start_link([TcpPort]) ->
                                              {?API_ROOT ++ "/trigger", trigger_handler, []}
                                             ]}]),
 
-    {ok, Timeout} = application:get_env(cvmfs_notify, repo_idle_timeout),
-
     %% Start the HTTP listener process configured with the routing table
     lager:info("Starting HTTP front-end"),
     cowboy:start_clear(front_end,
                        [{port, TcpPort}],
                        #{env => #{dispatch => Dispatch},
-                         idle_timeout => Timeout * 2,
-                         inactivity_timeout => Timeout * 2}).
+                         idle_timeout => ?TIMEOUT * 2,
+                         inactivity_timeout => ?TIMEOUT * 2}).
 
 
 -spec api_version() -> integer().

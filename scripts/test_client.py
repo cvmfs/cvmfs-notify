@@ -9,29 +9,29 @@ import json
 import websockets
 from optparse import OptionParser
 
-async def do_request(url, frame, verbose):
+async def do_request(url, repo_name, min_revision, continous, verbose):
+    msg = str.encode(json.dumps({'repo' : repo_name,
+                                 'min_revision' : min_revision }))
     async with websockets.connect(url) as websocket:
         if verbose:
             print("Subscription request sent")
 
-        await websocket.send(frame)
-        reply = await websocket.recv()
+        await websocket.send(msg)
 
-        if verbose:
-            print("Notification received: {}".format(json.loads(reply.decode())))
-        else:
-            print(reply.decode())
+        while True:
+            reply = await websocket.recv()
+            if verbose:
+                print("Notification received: {}".format(json.loads(reply.decode())))
+            else:
+                print(reply.decode())
+            if not continous:
+                break;
 
-        return reply.decode()
 
-def wait_for_update(url, repo_name, min_revision, verbose):
-    msg = str.encode(json.dumps({'repo' : repo_name,
-                                 'min_revision' : min_revision }))
+def listen(url, repo_name, min_revision, continuous, verbose):
     reply = asyncio.get_event_loop().run_until_complete(
-        do_request('ws://' + url, msg, verbose)
+        do_request('ws://' + url, repo_name, min_revision, continuous, verbose)
     )
-
-    return json.loads(reply)
 
 
 def main():
@@ -60,16 +60,7 @@ def main():
         print()
 
     current_revision = min_revision
-    reply = wait_for_update(url, repo_name, min_revision, options.verbose)
-
-    print("New status: {}".format(reply))
-
-    if options.continuous:
-        while True:
-            if 'revision' in reply:
-                current_revision = reply['revision'] + 1;
-            reply = wait_for_update(url, repo_name, current_revision,
-                                    options.verbose)
+    reply = listen(url, repo_name, min_revision, options.continuous, options.verbose)
 
 if __name__ == '__main__':
     main()

@@ -42,12 +42,10 @@ init_per_suite(Config) ->
     TcpPort = 8081,
     RepoIdleTimeout = 1000,
     ok = application:load(cvmfs_notify),
-    TestUserVars = #{fe_tcp_port => TcpPort,
-                     repo_idle_timeout => RepoIdleTimeout},
+    TestUserVars = #{fe_tcp_port => TcpPort},
     ok = application:set_env(cvmfs_notify, user_config, TestUserVars),
     {ok, _} = application:ensure_all_started(cvmfs_notify),
-    [{repo_idle_timeout, RepoIdleTimeout},
-     {http_timeout, RepoIdleTimeout * 2}] ++ Config.
+    [{http_timeout, RepoIdleTimeout * 2}] ++ Config.
 
 end_per_suite(_Config) ->
     application:stop(cvmfs_notify),

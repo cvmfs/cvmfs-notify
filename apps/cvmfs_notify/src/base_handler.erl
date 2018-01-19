@@ -50,56 +50,44 @@ init(Req0, State) ->
 
 websocket_init(State) ->
     lager:info("Websocket upgrade successful - State: ~p", [State]),
-    {ok, RepoIdleTimeout} = application:get_env(cvmfs_notify,
-                                                repo_idle_timeout),
-    {ok, #{repo_idle_timeout => RepoIdleTimeout}, hibernate}.
+    {ok, #{}, hibernate}.
 
-websocket_handle({binary, Msg} = Frame, #{repo_idle_timeout := Timeout} = State) ->
-    lager:info("Frame received: ~p, state: ~p", [Frame, State]),
+websocket_handle({binary, Msg} = Frame, State) ->
+    lager:info("Frame received from client: ~p, state: ~p", [Frame, State]),
     Reply = case jsx:is_json(Msg) of
                 true ->
                     case jsx:decode(Msg, [return_maps]) of
                         #{<<"repo">> := Repo,
                           <<"min_revision">> := MinRevision} ->
-                            Ref = make_ref(),
-                            Id = {self(), Ref},
-                            case event_manager:subscribe(Id, Repo, MinRevision) of
+                            case event_manager:subscribe(self(), Repo, MinRevision) of
                                 ok ->
-                                    %% Here we wait
-                                    case wait(Ref, Timeout) of
-                                        {repo_updated, Revision, RootHash} ->
-                                            #{<<"status">> => <<"ok">>,
-                                              <<"revision">> => Revision,
-                                              <<"root_hash">> => RootHash};
-                                        repo_idle ->
-                                            event_manager:unsubscribe(Ref, Repo),
-                                            #{<<"status">> => <<"idle">>,
-                                              <<"reason">> => <<"no repo activity until timeout">>}
-                                    end;
+                                    {ok, State, hibernate};
                                 {error, Reason} ->
-                                    #{<<"status">> => <<"error">>,
-                                      <<"reason">> => Reason}
+                                    {reply, {binary,
+                                             jsx:encode(#{<<"status">> => <<"error">>,
+                                                          <<"reason">> => Reason})},
+                                     State, hibernate}
                             end;
                         _ ->
-                            #{<<"status">> => <<"error">>,
-                              <<"reason">> => <<"invalid subscription message">>}
+                            {reply, {binary,
+                                     jsx:encode(#{<<"status">> => <<"error">>,
+                                                  <<"reason">> => <<"invalid subscription message">>})},
+                             State, hibernate}
                     end;
                 false ->
-                    #{<<"status">> => <<"error">>,
-                      <<"reason">> => <<"message is not valid JSON">>}
-            end,
-    {reply, {binary, jsx:encode(Reply)}, State, hibernate}.
+                    {reply, {binary,
+                             jsx:encode(#{<<"status">> => <<"error">>,
+                                          <<"reason">> => <<"message is not valid JSON">>})},
+                     State, hibernate}
+            end.
 
+websocket_info({repo_updated, Revision, RootHash} = Info, State) ->
+    lager:info("Repository message received: ~p, state: ~p", [Info, State]),
+    Reply = jsx:encode(#{<<"status">> => <<"ok">>,
+                         <<"revision">> => Revision,
+                         <<"root_hash">> => RootHash}),
+    {reply, {binary, Reply}, State, hibernate};
 websocket_info(Info, State) ->
-    lager:info("Erlang message received: ~p, state: ~p", [Info, State]),
+    lager:info("Unknown message received: ~p, state: ~p", [Info, State]),
     {ok, State, hibernate}.
-
-
-wait(Ref, Timeout) ->
-    receive
-        {Ref, Activity} ->
-            Activity
-    after Timeout ->
-            repo_idle
-    end.
 

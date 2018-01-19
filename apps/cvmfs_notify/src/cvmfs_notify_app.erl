@@ -17,14 +17,9 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    UserVars = read_vars(user_config, #{fe_tcp_port => 8081,
-                                        repo_idle_timeout => 30000}),
+    UserVars = read_vars(user_config, #{fe_tcp_port => 8081}),
 
     TcpPort = maps:get(fe_tcp_port, UserVars),
-    RepoIdleTimeout = maps:get(repo_idle_timeout, UserVars),
-    application:set_env(cvmfs_notify,
-                        repo_idle_timeout,
-                        RepoIdleTimeout),
     {ok, _} = front_end:start_link([TcpPort]),
 
     lager:info("User vars: ~p", [UserVars]),
