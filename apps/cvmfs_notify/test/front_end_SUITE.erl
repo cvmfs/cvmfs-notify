@@ -17,7 +17,6 @@
          init_per_testcase/2, end_per_testcase/2]).
 
 -export([subscribe_wait_trigger/1,
-         subscribe_wait_timeout/1,
          trigger_subscribe_nowait/1,
          trigger_subscribe_wait_trigger/1]).
 
@@ -29,7 +28,6 @@
 
 all() ->
     [subscribe_wait_trigger,
-     subscribe_wait_timeout,
      trigger_subscribe_nowait,
      trigger_subscribe_wait_trigger].
 
@@ -40,12 +38,11 @@ init_per_suite(Config) ->
     application:ensure_all_started(gun),
 
     TcpPort = 8081,
-    RepoIdleTimeout = 1000,
     ok = application:load(cvmfs_notify),
     TestUserVars = #{fe_tcp_port => TcpPort},
     ok = application:set_env(cvmfs_notify, user_config, TestUserVars),
     {ok, _} = application:ensure_all_started(cvmfs_notify),
-    [{http_timeout, RepoIdleTimeout * 2}] ++ Config.
+    Config.
 
 end_per_suite(_Config) ->
     application:stop(cvmfs_notify),
@@ -56,7 +53,7 @@ end_per_suite(_Config) ->
 init_per_testcase(_TestCase, Config) ->
     Config.
 
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(_TestCase, _Config) ->
     ok.
 
 
@@ -77,21 +74,6 @@ subscribe_wait_trigger(Config) ->
     after ?TEST_TIMEOUT ->
             exit(no_reply_from_test_process)
     end.
-
-subscribe_wait_timeout(Config) ->
-    Parent = self(),
-    trigger(<<"test_repo">>, 1, <<"abcdef">>, 1),
-    spawn_link(fun() ->
-                       subscribe_wait(<<"test_repo">>, 2, Parent, Config)
-               end),
-    receive
-        #{<<"status">> := Status, <<"reason">> := Reason} ->
-            <<"idle">> = Status,
-            <<"no repo activity until timeout">> = Reason
-    after ?TEST_TIMEOUT ->
-            exit(no_reply_from_test_process)
-    end.
-
 
 trigger_subscribe_nowait(Config) ->
     Parent = self(),
@@ -136,7 +118,7 @@ wait(ConnPid, StreamRef) ->
             {error, reply_without_body}
     end.
 
-subscribe_wait(Repo, MinRevision, Parent, Config) ->
+subscribe_wait(Repo, MinRevision, Parent, _Config) ->
     {ok, ConnPid} = gun:open("localhost", 8081),
     {ok, http} = gun:await_up(ConnPid),
     gun:ws_upgrade(ConnPid, ?API_ROOT ++ "/notify"),
@@ -148,10 +130,10 @@ subscribe_wait(Repo, MinRevision, Parent, Config) ->
                   receive
                       {gun_ws, ConnPid, {binary, ReplyBin}} ->
                           jsx:decode(ReplyBin, [return_maps])
-                  after ?config(http_timeout, Config) ->
+                  after ?TEST_TIMEOUT ->
                           exit(timeout)
                   end
-          after ?config(http_timeout, Config) ->
+          after ?TEST_TIMEOUT ->
                   exit(timeout)
           end,
     Parent ! Ret,
