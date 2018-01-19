@@ -36,7 +36,7 @@ def listen(url, repo_name, min_revision, continuous, verbose):
 
 def main():
     usage = "{}\n\n{}".format("Usage: %prog [options] URL REPO_NAME MIN_REVISION",
-                              "Ex: %prog localhost:8081/api/v1/notify my_repo 17 abcdef")
+                              "Ex: %prog localhost:8081/api/v1/notify my_repo 17")
     parser = OptionParser(usage)
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       help="verbose output")
