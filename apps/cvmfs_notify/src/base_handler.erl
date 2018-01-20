@@ -49,11 +49,11 @@ init(Req0, State) ->
 %% Websocket callbacks
 
 websocket_init(State) ->
-    lager:info("Websocket upgrade successful - State: ~p", [State]),
+    lager:debug("Websocket upgrade successful - State: ~p", [State]),
     {ok, #{}, hibernate}.
 
 websocket_handle({binary, Msg} = Frame, State) ->
-    lager:info("Frame received from client: ~p, state: ~p", [Frame, State]),
+    lager:debug("Frame received from client: ~p, state: ~p", [Frame, State]),
     case jsx:is_json(Msg) of
         true ->
             case jsx:decode(Msg, [return_maps]) of
@@ -81,11 +81,11 @@ websocket_handle({binary, Msg} = Frame, State) ->
              State, hibernate}
     end;
 websocket_handle({ping, Msg}, State) ->
-    lager:debug("Ping received"),
+    lager:debug("Ping received with data: ~p", [Msg]),
     {ok, State, hibernate}.
 
 websocket_info({repo_updated, Revision, RootHash} = Info, State) ->
-    lager:info("Repository message received: ~p, state: ~p", [Info, State]),
+    lager:debug("Repository message received: ~p, state: ~p", [Info, State]),
     Reply = jsx:encode(#{<<"status">> => <<"ok">>,
                          <<"revision">> => Revision,
                          <<"root_hash">> => RootHash}),

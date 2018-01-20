@@ -19,12 +19,12 @@ unique_id() ->
 tick(Uid, Req, Unit) ->
     T = erlang:monotonic_time(Unit),
     URI = cowboy_req:uri(Req),
-    lager:info("HTTP req received - Uid: ~p, URI: ~p", [Uid, URI]),
+    lager:debug("HTTP req received - Uid: ~p, URI: ~p", [Uid, URI]),
     {URI, T}.
 
 
 tock(Uid, URI, T0, Unit) ->
     T1 = erlang:monotonic_time(Unit),
-    lager:info("HTTP req handled - Uid: ~p, URI: ~p, time to process = ~p usec",
+    lager:debug("HTTP req handled - Uid: ~p, URI: ~p, time to process = ~p usec",
                [Uid, URI, T1 - T0]).
 

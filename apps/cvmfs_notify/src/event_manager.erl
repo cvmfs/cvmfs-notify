@@ -99,12 +99,12 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call({subscribe, {Pid, Repo, MinRevision}}, _From, State) ->
     {Reply, NewState} = p_subscribe(Pid, Repo, MinRevision, State),
-    lager:info("Subscribe event: pid: ~p, repo: ~p, min_revision: ~p - reply: ~p",
+    lager:debug("Subscribe event: pid: ~p, repo: ~p, min_revision: ~p - reply: ~p",
                [Pid, Repo, MinRevision, Reply]),
     {reply, Reply, NewState};
 handle_call({trigger, {Repo, Revision, RootHash}}, _From, State) ->
     {Reply, NewState} = p_trigger(Repo, Revision, RootHash, State),
-    lager:info("Trigger event: repo: ~p, revision: ~p, root_hash: ~p - reply: ~p",
+    lager:debug("Trigger event: repo: ~p, revision: ~p, root_hash: ~p - reply: ~p",
                [Repo, Revision, RootHash, Reply]),
     {reply, Reply, NewState}.
 
@@ -119,7 +119,7 @@ handle_call({trigger, {Repo, Revision, RootHash}}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    lager:info("Cast received: ~p -> noreply", [Msg]),
+    lager:debug("Cast received: ~p -> noreply", [Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -133,7 +133,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({'DOWN', Ref, process, Pid, _}, {State, Monitors}) ->
-    lager:info("Monitored process is down: ref: ~p, pid: ~p", [Ref, Pid]),
+    lager:debug("Monitored process is down: ref: ~p, pid: ~p", [Ref, Pid]),
     NewMonitors = maps:remove(Ref, Monitors),
     NewState = maps:map(fun(_, RepoState) ->
                                 p_remove_pid(Pid, RepoState)
@@ -141,7 +141,7 @@ handle_info({'DOWN', Ref, process, Pid, _}, {State, Monitors}) ->
                         State),
     {noreply, {NewState, NewMonitors}};
 handle_info(Info, State) ->
-    lager:warning("Unknown message received: ~p", [Info]),
+    lager:info("Unknown message received: ~p", [Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
