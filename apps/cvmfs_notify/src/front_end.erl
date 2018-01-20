@@ -12,7 +12,7 @@
 -define(API_VERSION, 1).
 -define(API_ROOT, "/api/v" ++ integer_to_list(?API_VERSION)).
 
--define(TIMEOUT, 10000).
+-define(TIMEOUT, 300000).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -31,8 +31,8 @@ start_link([TcpPort]) ->
     cowboy:start_clear(front_end,
                        [{port, TcpPort}],
                        #{env => #{dispatch => Dispatch},
-                         idle_timeout => ?TIMEOUT * 2,
-                         inactivity_timeout => ?TIMEOUT * 2}).
+                         idle_timeout => ?TIMEOUT,
+                         inactivity_timeout => ?TIMEOUT}).
 
 
 -spec api_version() -> integer().
