@@ -82,7 +82,7 @@ websocket_handle({binary, Msg} = Frame, State) ->
     end;
 websocket_handle({ping, Msg}, State) ->
     lager:debug("Ping received"),
-    {reply, {binary, Msg}, State, hibernate}.
+    {ok, State, hibernate}.
 
 websocket_info({repo_updated, Revision, RootHash} = Info, State) ->
     lager:info("Repository message received: ~p, state: ~p", [Info, State]),
