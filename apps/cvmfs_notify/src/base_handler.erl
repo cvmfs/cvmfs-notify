@@ -79,7 +79,10 @@ websocket_handle({binary, Msg} = Frame, State) ->
                      jsx:encode(#{<<"status">> => <<"error">>,
                                   <<"reason">> => <<"message is not valid JSON">>})},
              State, hibernate}
-    end.
+    end;
+websocket_handle({ping, Msg}, State) ->
+    lager:debug("Ping received"),
+    {reply, {binary, Msg}, State, hibernate}.
 
 websocket_info({repo_updated, Revision, RootHash} = Info, State) ->
     lager:info("Repository message received: ~p, state: ~p", [Info, State]),
