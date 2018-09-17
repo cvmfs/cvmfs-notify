@@ -4,5 +4,5 @@
           {handlers, [{lager_console_backend, info}]}]},
 
  {cvmfs_notify, [{user_config, {file, "./etc/user.config"}},
-                 {db_dir, "/usr/local/var/db/cvmfs_notify"}]}
+                 {db_dir, "/var/lib/cvmfs-notify"}]}
 ].

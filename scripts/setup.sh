@@ -10,7 +10,7 @@ set -e
 
 #SCRIPT_LOCATION=$(cd "$(dirname "$0")"; pwd)
 
-DB_DIR=/usr/local/var/db/cvmfs_notify
+DB_DIR=/var/lib/cvmfs-notify
 
 echo "  - creating persistant storage directory at $DB_DIR"
 sudo mkdir -p $DB_DIR
