@@ -25,11 +25,11 @@ async def do_request(url, repo_name, min_revision, continous, verbose):
             else:
                 print(reply.decode())
             if not continous:
-                break;
+                break
 
 
 def listen(url, repo_name, min_revision, continuous, verbose):
-    reply = asyncio.get_event_loop().run_until_complete(
+    asyncio.get_event_loop().run_until_complete(
         do_request('ws://' + url, repo_name, min_revision, continuous, verbose)
     )
 
@@ -59,8 +59,7 @@ def main():
         print("  min revision: {}".format(min_revision))
         print()
 
-    current_revision = min_revision
-    reply = listen(url, repo_name, min_revision, options.continuous, options.verbose)
+    listen(url, repo_name, min_revision, options.continuous, options.verbose)
 
 if __name__ == '__main__':
     main()
