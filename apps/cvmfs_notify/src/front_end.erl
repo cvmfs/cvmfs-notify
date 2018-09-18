@@ -1,6 +1,9 @@
 %%%-------------------------------------------------------------------
-%% @doc front_end public API
-%% @end
+%%% This file is part of the CernVM File System.
+%%%
+%%% @doc front_end public API
+%%%
+%%% @end
 %%%-------------------------------------------------------------------
 
 -module(front_end).

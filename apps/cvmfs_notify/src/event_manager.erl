@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc _handler - trigger request handler
+%%% @doc _handler - event_manager
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
