@@ -1,8 +1,9 @@
 [
- {lager, [{log_root, "/tmp"},
+ {lager, [{log_root, "/var/log/cvmfs-notify"},
           {crash_log, "crash.log"},
-          {handlers, [{lager_console_backend, info}]}]},
+          {handlers, [{lager_console_backend, [{level, info}]},
+                      {lager_file_backend, [{file, "main.log"}, {level, info}]}]},
+          {extra_sinks, [{error_logger_lager_event, [{handlers, [{lager_file_backend, [{file, "error.log"}, {level, error}]}]}]}]}]},
 
- {cvmfs_notify, [{user_config, {file, "./etc/user.config"}},
-                 {db_dir, "/var/lib/cvmfs-notify"}]}
+ {cvmfs_notify, [{user_config, {file, "/etc/cvmfs/notify/config.json"}}]}
 ].

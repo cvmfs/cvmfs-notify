@@ -17,9 +17,9 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    UserVars = read_vars(user_config, #{fe_tcp_port => 8081}),
+    UserVars = util:read_vars(user_config, util:default_config()),
 
-    TcpPort = maps:get(fe_tcp_port, UserVars),
+    TcpPort = maps:get(port, UserVars),
     {ok, _} = front_end:start_link([TcpPort]),
 
     lager:info("User vars: ~p", [UserVars]),
@@ -30,16 +30,3 @@ start(_StartType, _StartArgs) ->
 stop(_State) ->
     ok.
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
-read_vars(VarName, Defaults) ->
-    case application:get_env(VarName) of
-        {ok, {file, ConfigFile}} ->
-            {ok, VarList} = file:consult(ConfigFile),
-            maps:from_list(VarList);
-        {ok, ConfigMap} ->
-            ConfigMap;
-        undefined ->
-            Defaults
-    end.
