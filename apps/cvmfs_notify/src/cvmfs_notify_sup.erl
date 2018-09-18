@@ -1,6 +1,9 @@
 %%%-------------------------------------------------------------------
-%% @doc cvmfs_notify top level supervisor.
-%% @end
+%%% This file is part of the CernVM File System.
+%%%
+%%% @doc cvmfs_notify top level supervisor.
+%%%
+%%% @end
 %%%-------------------------------------------------------------------
 
 -module(cvmfs_notify_sup).
@@ -26,7 +29,7 @@ start_link(Args) ->
 %% Supervisor callbacks
 %%====================================================================
 
-init(_Args) ->
+init(Args) ->
     SupervisorSpecs = #{strategy => one_for_all,
                         intensity => 5,
                         period => 5},
@@ -36,7 +39,13 @@ init(_Args) ->
         restart => permanent,
         shutdown => 2000,
         type => worker,
-        modules => [event_manager]}
+        modules => [event_manager]},
+      #{id => publisher,
+        start => {publisher, start_link, [Args]},
+        restart => permanent,
+        shutdown => 2000,
+        type => worker,
+        modules => [publisher]}
      ],
     {ok, {SupervisorSpecs, WorkerSpecs} }.
 
