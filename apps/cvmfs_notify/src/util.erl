@@ -13,7 +13,8 @@
 -export([tick/3
         ,tock/4
         ,unique_id/0
-        ,read_vars/0]).
+        ,read_vars/0
+        ,set_lager_log_level/1]).
 
 
 
@@ -50,6 +51,19 @@ read_vars() ->
             #{}
     end,
     maps:merge(FileVars, EnvVars).
+
+
+set_lager_log_level(LogLevel) ->
+    Levels = [<<"debug">>, <<"info">>, <<"notice">>, <<"warning">>, <<"error">>,
+              <<"critical">>, <<"alert">>, <<"emergency">>],
+    case lists:member(LogLevel, Levels) of
+        true ->
+            lager:set_loglevel(lager_file_backend, "main.log",
+                               erlang:binary_to_atom(LogLevel, latin1)),
+            ok;
+        false ->
+            error
+    end.
 
 
 %%===============================
