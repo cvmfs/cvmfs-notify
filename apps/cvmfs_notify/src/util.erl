@@ -43,10 +43,16 @@ tock(Uid, URI, T0, Unit) ->
 
 read_vars() ->
     DefaultVars = default_config(),
-    FileVars = maps:merge(DefaultVars, read_vars(user_config)),
+    RmqDefaultVars = maps:get(rabbitmq, DefaultVars),
 
-    AMQPUser = list_to_binary(os:getenv("CVMFS_NOTIFY_AMQP_USERNAME")),
-    AMQPPass = list_to_binary(os:getenv("CVMFS_NOTIFY_AMQP_PASSWORD")),
+    FileVars0 = maps:merge(DefaultVars, read_vars(user_config)),
+    RmqFileVars = maps:get(rabbitmq, FileVars0, #{}),
+    FileVars = maps:put(rabbitmq,
+                        maps:merge(RmqDefaultVars, RmqFileVars),
+                        FileVars0),
+
+    AMQPUser = os:getenv("CVMFS_NOTIFY_AMQP_USERNAME"),
+    AMQPPass = os:getenv("CVMFS_NOTIFY_AMQP_PASSWORD"),
 
     RmqVars = maps:get(rabbitmq, FileVars),
 
@@ -54,7 +60,8 @@ read_vars() ->
         fun(V) -> (V =/= false) and (V =/= []) end,
         [AMQPUser, AMQPPass]) of
         true ->
-            #{user => AMQPUser, pass => AMQPPass};
+            #{user => list_to_binary(AMQPUser),
+              pass => list_to_binary(AMQPPass)};
         _ ->
             #{}
     end,
