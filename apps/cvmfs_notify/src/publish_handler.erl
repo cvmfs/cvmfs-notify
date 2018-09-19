@@ -1,12 +1,12 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc trigger_handler - trigger request handler
+%%% @doc publish_handler - HTTP request handler for /publish
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(trigger_handler).
+-module(publish_handler).
 
 -compile([{parse_transform, lager_transform}]).
 

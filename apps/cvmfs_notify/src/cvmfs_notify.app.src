@@ -1,7 +1,7 @@
 {application, cvmfs_notify,
  [{description, "CVMFS Notification System"},
   {vsn, "0.1.0"},
-  {registered, [front_end, event_manager, publisher]},
+  {registered, [front_end, subscriptions, publisher]},
   {mod, { cvmfs_notify_app, []}},
   {applications,
    [kernel,
@@ -12,12 +12,12 @@
    ]},
   {env,[]},
   {modules, [
-             base_handler,
              event_manager,
              front_end,
              front_end_util,
              publisher,
-             trigger_handler,
+             publish_handler,
+             subscribe_handler,
              util
             ]},
 

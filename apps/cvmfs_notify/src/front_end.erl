@@ -25,8 +25,12 @@
 %%--------------------------------------------------------------------
 start_link([TcpPort]) ->
     Dispatch = cowboy_router:compile([{'_', [
-                                             {?API_ROOT ++ "/notify", base_handler, []},
-                                             {?API_ROOT ++ "/trigger", trigger_handler, []}
+                                             {?API_ROOT ++ "/subscribe",
+                                              subscribe_handler,
+                                              []},
+                                             {?API_ROOT ++ "/publish",
+                                              publish_handler,
+                                              []}
                                             ]}]),
 
     %% Start the HTTP listener process configured with the routing table

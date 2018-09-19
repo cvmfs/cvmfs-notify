@@ -6,14 +6,14 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(event_manager).
+-module(subscriptions).
 
 -behaviour(gen_server).
 
 -compile([{parse_transform, lager_transform}]).
 
 %% API
--export([start_link/0, subscribe/3, trigger/3]).
+-export([start_link/0, subscribe/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -22,9 +22,8 @@
 -define(SERVER, ?MODULE).
 
 %% Records
-
 -record(repo_state, {revision, root_hash, subscriptions}).
--record(saved_repo_state, {revision, root_hash}).
+
 
 %%%===================================================================
 %%% API
@@ -51,17 +50,6 @@ subscribe(Id, Repo, MinRevision) ->
     gen_server:call(?MODULE, {subscribe, {Id, Repo, MinRevision}}).
 
 
-%%--------------------------------------------------------------------
-%% @doc
-%% Trigger a notification about a new revision in Repo
-%%
-%% @end
-%%--------------------------------------------------------------------
-trigger(Repo, Revision, RootHash) ->
-    gen_server:call(?MODULE, {trigger, {Repo, Revision, RootHash}}).
-
-
-
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -79,9 +67,9 @@ trigger(Repo, Revision, RootHash) ->
 %%--------------------------------------------------------------------
 init([]) ->
     process_flag(trap_exit, true),
-    State = p_read_initial_state(),
-    lager:info("Event manager started"),
-    {ok, {State, #{}}}.
+    lager:info("Subscription manager started"),
+    {ok, #{}}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -101,12 +89,8 @@ handle_call({subscribe, {Pid, Repo, MinRevision}}, _From, State) ->
     {Reply, NewState} = p_subscribe(Pid, Repo, MinRevision, State),
     lager:debug("Subscribe event: pid: ~p, repo: ~p, min_revision: ~p - reply: ~p",
                [Pid, Repo, MinRevision, Reply]),
-    {reply, Reply, NewState};
-handle_call({trigger, {Repo, Revision, RootHash}}, _From, State) ->
-    {Reply, NewState} = p_trigger(Repo, Revision, RootHash, State),
-    lager:debug("Trigger event: repo: ~p, revision: ~p, root_hash: ~p - reply: ~p",
-               [Repo, Revision, RootHash, Reply]),
     {reply, Reply, NewState}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -121,6 +105,7 @@ handle_call({trigger, {Repo, Revision, RootHash}}, _From, State) ->
 handle_cast(Msg, State) ->
     lager:debug("Cast received: ~p -> noreply", [Msg]),
     {noreply, State}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -144,6 +129,7 @@ handle_info(Info, State) ->
     lager:info("Unknown message received: ~p", [Info]),
     {noreply, State}.
 
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -159,6 +145,7 @@ terminate(Reason, _State) ->
     lager:info("Terminating with reason: ~p", [Reason]),
     ok.
 
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -170,6 +157,7 @@ terminate(Reason, _State) ->
 code_change(OldVsn, State, _Extra) ->
     lager:info("Code change request received. Old version: ~p", [OldVsn]),
     {ok, State}.
+
 
 %%%===================================================================
 %%% Internal functions
@@ -201,33 +189,6 @@ p_subscribe(Pid, Repo, MinRevision, {State, Monitors}) ->
     NewMonitors = Monitors#{ Ref => Pid },
     {ok, {NewState, NewMonitors}}.
 
-p_trigger(Repo, Revision, RootHash, {State, Monitors}) ->
-    % Retrieve the subscription information for Repo, or insert a new item
-    RepoState = maps:get(Repo, State, #repo_state{revision = unknown,
-                                                  root_hash = unknown,
-                                                  subscriptions = #{}}),
-
-    % Inspect subscriptions and notify if needed
-    Subscriptions = RepoState#repo_state.subscriptions,
-    Notify = fun(Pid, MinRevision) ->
-                     case Revision >= MinRevision of
-                         % A larger revision than MinRevision has arrived. Notify the subscriber
-                         true ->
-                             Pid ! {repo_updated, Revision, RootHash},
-                             Revision + 1;
-                         _ ->
-                             MinRevision
-                     end
-             end,
-    NewSubscriptions = maps:map(Notify, Subscriptions),
-
-    NewRepoState = RepoState#repo_state{revision = Revision,
-                                        root_hash = RootHash,
-                                        subscriptions = NewSubscriptions},
-    NewState = maps:put(Repo, NewRepoState, State),
-    p_save_repo_state(Repo, NewRepoState),
-
-    {ok, {NewState, Monitors}}.
 
 p_remove_pid(Pid, RepoState) ->
     NewSubscriptions = maps:filter(
@@ -236,31 +197,3 @@ p_remove_pid(Pid, RepoState) ->
                          end,
                          RepoState#repo_state.subscriptions),
     RepoState#repo_state{subscriptions = NewSubscriptions}.
-
-
-p_read_initial_state() ->
-    case application:get_env(db_dir) of
-        {ok, DbDir} ->
-            lager:info("DB dir: ~p", [DbDir]),
-            dets:open_file(repo_state, [{file, DbDir ++ "/repo_state"}]),
-            L = dets:traverse(repo_state,
-                              fun({Name, State}) ->
-                                      RS = #repo_state{revision = State#saved_repo_state.revision,
-                                                       root_hash = State#saved_repo_state.root_hash,
-                                                       subscriptions = #{}},
-                                      {continue, {Name, RS}}
-                              end),
-            maps:from_list(L);
-        _ ->
-            #{}
-    end.
-
-p_save_repo_state(RepoName, RepoState) ->
-    case application:get_env(db_dir) of
-        {ok, _} ->
-            S = #saved_repo_state{revision = RepoState#repo_state.revision,
-                                  root_hash = RepoState#repo_state.root_hash},
-            ok = dets:insert(repo_state, [{RepoName, S}]);
-        _ ->
-            false
-    end.

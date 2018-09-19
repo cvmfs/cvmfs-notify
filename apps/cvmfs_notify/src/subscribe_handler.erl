@@ -1,12 +1,12 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc base_handler - base HTTP request handler
+%%% @doc subsribe_handler - HTTP request handler for /subscribe
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(base_handler).
+-module(subscribe_handler).
 
 -compile([{parse_transform, lager_transform}]).
 
