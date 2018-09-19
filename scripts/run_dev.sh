@@ -8,5 +8,5 @@ rebar3 auto \
     --config config/sys.config.dev \
     --sname cvmfs_notify \
     --setcookie cvmfs \
-    --apps cvmfs_notify,runtime_tools,sasl
+    --apps cvmfs_notify,runtime_tools
 
