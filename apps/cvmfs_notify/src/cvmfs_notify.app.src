@@ -14,7 +14,7 @@
   {modules, [
              event_manager,
              front_end,
-             front_end_util,
+             message,
              publisher,
              publish_handler,
              subscribe_handler,

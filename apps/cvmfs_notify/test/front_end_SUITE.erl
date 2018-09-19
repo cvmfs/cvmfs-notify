@@ -10,15 +10,14 @@
 -module(front_end_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
-%%-include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, init_per_suite/1, end_per_suite/1,
          init_per_testcase/2, end_per_testcase/2]).
 
--export([subscribe_wait_trigger/1,
-         trigger_subscribe_nowait/1,
-         trigger_subscribe_wait_trigger/1]).
+-export([subscribe_wait_publish/1,
+         publish_subscribe_nowait/1,
+         publish_subscribe_wait_publish/1]).
 
 -define(API_ROOT, "/api/v1").
 
@@ -27,9 +26,9 @@
 %% Test description
 
 all() ->
-    [subscribe_wait_trigger,
-     trigger_subscribe_nowait,
-     trigger_subscribe_wait_trigger].
+    [subscribe_wait_publish,
+     publish_subscribe_nowait,
+     publish_subscribe_wait_publish].
 
 
 %% Set up and tear down
@@ -59,13 +58,13 @@ end_per_testcase(_TestCase, _Config) ->
 
 %% Test specifications
 
-subscribe_wait_trigger(Config) ->
+subscribe_wait_publish(Config) ->
     Parent = self(),
     spawn_link(fun() ->
                        subscribe_wait(<<"test_repo">>, 1, Parent, Config)
                end),
     ct:sleep(500),
-    trigger(<<"test_repo">>, 1, <<"abcdef">>, 1),
+    publish(<<"test_repo">>, 1, <<"abcdef">>, 1),
     receive
         #{<<"status">> := Status, <<"revision">> := Revision, <<"root_hash">> := RootHash} ->
             <<"ok">> = Status,
@@ -75,9 +74,9 @@ subscribe_wait_trigger(Config) ->
             exit(no_reply_from_test_process)
     end.
 
-trigger_subscribe_nowait(Config) ->
+publish_subscribe_nowait(Config) ->
     Parent = self(),
-    trigger(<<"test_repo">>, 1, <<"abcdef">>, 1),
+    publish(<<"test_repo">>, 1, <<"abcdef">>, 1),
     spawn_link(fun() ->
                        subscribe_wait(<<"test_repo">>, 1, Parent, Config)
                end),
@@ -90,14 +89,14 @@ trigger_subscribe_nowait(Config) ->
             exit(no_reply_from_test_process)
     end.
 
-trigger_subscribe_wait_trigger(Config) ->
+publish_subscribe_wait_publish(Config) ->
     Parent = self(),
-    trigger(<<"test_repo">>, 1, <<"abcdef">>, 1),
+    publish(<<"test_repo">>, 1, <<"abcdef">>, 1),
     spawn_link(fun() ->
                        subscribe_wait(<<"test_repo">>, 2, Parent, Config)
                end),
     ct:sleep(500),
-    trigger(<<"test_repo">>, 2, <<"ghijkl">>, 1),
+    publish(<<"test_repo">>, 2, <<"ghijkl">>, 1),
     receive
         #{<<"status">> := Status, <<"revision">> := Revision, <<"root_hash">> := RootHash} ->
             <<"ok">> = Status,
@@ -139,7 +138,7 @@ subscribe_wait(Repo, MinRevision, Parent, _Config) ->
     Parent ! Ret,
     ok = gun:shutdown(ConnPid).
 
-trigger(Repo, Revision, RootHash, ApiVersion) ->
+publish(Repo, Revision, RootHash, ApiVersion) ->
     Body = jsx:encode(#{<<"repo">> => Repo,
                         <<"revision">> => Revision,
                         <<"root_hash">> => RootHash,
@@ -147,7 +146,7 @@ trigger(Repo, Revision, RootHash, ApiVersion) ->
     {ok, ConnPid} = gun:open("localhost", 8081),
     {ok, http} = gun:await_up(ConnPid),
     StreamRef = gun:post(ConnPid,
-                         ?API_ROOT ++ "/trigger",
+                         ?API_ROOT ++ "/publish",
                          [{<<"content-type">>, <<"application/json">>}]),
     gun:data(ConnPid, StreamRef, fin, Body),
     wait(ConnPid, StreamRef),

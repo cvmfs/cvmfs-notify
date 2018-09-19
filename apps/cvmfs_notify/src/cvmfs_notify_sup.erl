@@ -41,7 +41,7 @@ init(Args) ->
       %   type => worker,
       %   modules => [event_manager]},
       #{id => publisher,
-        start => {publisher, start_link, [Args]},
+        start => {publisher, start_link, [maps:get(rabbitmq, Args)]},
         restart => permanent,
         shutdown => 2000,
         type => worker,

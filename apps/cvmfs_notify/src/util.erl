@@ -12,10 +12,16 @@
 
 -export([tick/3
         ,tock/4
+        ,error_map/1
         ,unique_id/0
         ,read_vars/0
         ,set_lager_log_level/1]).
 
+
+
+-spec error_map(Reason :: binary()) -> #{ binary() => binary() }.
+error_map(Reason) ->
+    #{<<"status">> => <<"error">>, <<"reason">> => Reason}.
 
 
 unique_id() ->
@@ -39,18 +45,21 @@ read_vars() ->
     DefaultVars = default_config(),
     FileVars = maps:merge(DefaultVars, read_vars(user_config)),
 
-    AMQPUser = os:getenv("CVMFS_NOTIFY_AMQP_USERNAME"),
-    AMQPPass = os:getenv("CVMFS_NOTIFY_AMQP_PASSWORD"),
+    AMQPUser = list_to_binary(os:getenv("CVMFS_NOTIFY_AMQP_USERNAME")),
+    AMQPPass = list_to_binary(os:getenv("CVMFS_NOTIFY_AMQP_PASSWORD")),
+
+    RmqVars = maps:get(rabbitmq, FileVars),
 
     EnvVars = case lists:all(
         fun(V) -> (V =/= false) and (V =/= []) end,
         [AMQPUser, AMQPPass]) of
         true ->
-            #{rabbitmq_user => AMQPUser, rabbitmq_pass => AMQPPass};
+            #{user => AMQPUser, pass => AMQPPass};
         _ ->
             #{}
     end,
-    maps:merge(FileVars, EnvVars).
+    MergedRmqVars = maps:merge(RmqVars, EnvVars),
+    maps:merge(FileVars, #{rabbitmq => MergedRmqVars}).
 
 
 set_lager_log_level(LogLevel) ->
@@ -90,6 +99,7 @@ read_config_file(File) ->
 
 default_config() ->
     #{port => 4930,
-      rabbitmq_url => "http://localhost:5672",
-      rabbitmq_user => not_given,
-      rabbitmq_pass => not_given}.
+      rabbitmq => #{url => <<"localhost">>,
+                    port => 5672,
+                    user => not_given,
+                    pass => not_given}}.

@@ -8,12 +8,14 @@
 
 -module(publisher).
 
+-include_lib("amqp_client/include/amqp_client.hrl").
+
 -compile([{parse_transform, lager_transform}]).
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/1]).
+-export([start_link/1, send/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -40,6 +42,17 @@ start_link(Args) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Publish a message related to a repository
+%%
+%% @spec send(Repo, Msg) -> {ok | {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
+-spec send(Repo:: binary(), Msg :: binary()) -> {ok | {error, Reason :: binary()}}.
+send(Repo, Msg) ->
+    gen_server:call(?MODULE, {send_msg, Repo, Msg}).
+
 %%===================================================================
 %% gen_server callbacks
 %%===================================================================
@@ -55,9 +68,22 @@ start_link(Args) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(_Args) ->
+init(Args) ->
+    Params = #amqp_params_network {
+        username = maps:get(user, Args),
+        password = maps:get(pass, Args),
+        virtual_host = <<"/cvmfs">>,
+        host = binary_to_list(maps:get(url, Args)),
+        port = maps:get(port, Args),
+        channel_max = 2047,
+        frame_max = 0,
+        heartbeat = 30
+    },
+    {ok, Connection} = amqp_connection:start(Params),
+    {ok, Channel} = amqp_connection:open_channel(Connection),
+
     lager:info("Publisher started"),
-    {ok, #{}}.
+    {ok, #{connection => Connection, channel => Channel}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -73,6 +99,11 @@ init(_Args) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_call({send_msg, Repo, Msg}, _From, #{channel := Channel} = State) ->
+    Publish = #'basic.publish'{exchange = <<"repository_activity">>,
+                               routing_key = Repo},
+    amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Msg}),
+    {reply, ok, State};
 handle_call(_Msg, _From, State) ->
     {reply, {}, State}.
 

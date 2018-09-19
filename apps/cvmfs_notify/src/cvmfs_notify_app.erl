@@ -21,7 +21,6 @@
 
 start(_StartType, _StartArgs) ->
     UserVars = util:read_vars(),
-    lager:info("User vars: ~p", [UserVars]),
 
     LogLevel = maps:get(log_level, UserVars, <<"info">>),
     ok = util:set_lager_log_level(LogLevel),

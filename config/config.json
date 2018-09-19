@@ -1,4 +1,7 @@
 {
     "port": 4930,
-    "rabbitmq_url": "http://cvm-perf03.cern.ch:5672"
+    "rabbitmq": {
+        "url": "cvm-perf03.cern.ch",
+        "port": 5672
+    }
 }
