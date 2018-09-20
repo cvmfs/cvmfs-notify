@@ -57,9 +57,9 @@ websocket_handle({binary, Msg} = Frame, State) ->
     case jsx:is_json(Msg) of
         true ->
             case jsx:decode(Msg, [return_maps]) of
-                #{<<"repo">> := Repo,
-                  <<"min_revision">> := MinRevision} ->
-                    case event_manager:subscribe(self(), Repo, MinRevision) of
+                #{<<"version">> := _Version,
+                  <<"repo">> := Repo} ->
+                    case subscriptions:subscribe(self(), Repo) of
                         ok ->
                             {ok, State, hibernate};
                         {error, Reason} ->
@@ -84,12 +84,9 @@ websocket_handle({ping, Msg}, State) ->
     lager:debug("Ping received with data: ~p", [Msg]),
     {ok, State, hibernate}.
 
-websocket_info({repo_updated, Revision, RootHash} = Info, State) ->
+websocket_info({activity, Msg} = Info, State) ->
     lager:debug("Repository message received: ~p, state: ~p", [Info, State]),
-    Reply = jsx:encode(#{<<"status">> => <<"ok">>,
-                         <<"revision">> => Revision,
-                         <<"root_hash">> => RootHash}),
-    {reply, {binary, Reply}, State, hibernate};
+    {reply, {binary, Msg}, State, hibernate};
 websocket_info(Info, State) ->
     lager:info("Unknown message received: ~p, state: ~p", [Info, State]),
     {ok, State, hibernate}.

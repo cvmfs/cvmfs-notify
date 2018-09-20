@@ -31,16 +31,12 @@ init(Req0 = #{method := <<"POST">>}, State) ->
     lager:debug("Received message: ~p", [Body]),
 
     {Status, Reply} = case message:validate(Body) of
-        {ok, Repo} ->
-            case publisher:send(Repo, Body) of
-                ok ->
-                    {200, #{<<"status">> => <<"ok">>}};
-                {error, Reason1} ->
-                    {400, util:error_map(Reason1)}
-            end;
-        {error, Reason2} ->
-            {400, util:error_map(Reason2)}
-    end,
+                          {ok, Repo} ->
+                              publisher:send(Repo, Body),
+                              {200, #{<<"status">> => <<"ok">>}};
+                          {error, Reason} ->
+                              {400, util:error_map(Reason)}
+                      end,
 
     ReqF = cowboy_req:reply(Status,
                             #{<<"content-type">> => <<"application/json">>},

@@ -19,9 +19,10 @@
 
 
 
--spec error_map(Reason :: binary()) -> #{ binary() => binary() }.
+-spec error_map(Reason :: atom()) -> #{ binary() => binary() }.
 error_map(Reason) ->
-    #{<<"status">> => <<"error">>, <<"reason">> => Reason}.
+    #{<<"status">> => <<"error">>,
+      <<"reason">> => atom_to_binary(Reason, latin1)}.
 
 
 unique_id() ->

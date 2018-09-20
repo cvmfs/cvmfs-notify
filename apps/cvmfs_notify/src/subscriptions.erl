@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc _handler - event_manager
+%%% @doc subcriptions manages the subscriptions for different repos
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
@@ -13,7 +13,7 @@
 -compile([{parse_transform, lager_transform}]).
 
 %% API
--export([start_link/0, subscribe/3]).
+-export([start_link/0, subscribe/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -22,7 +22,8 @@
 -define(SERVER, ?MODULE).
 
 %% Records
--record(repo_state, {revision, root_hash, subscriptions}).
+-record(repo_monitor, {uid, pid}).
+-record(repo_state, {name, msg, subscriptions}).
 
 
 %%%===================================================================
@@ -46,8 +47,8 @@ start_link() ->
 
 %% @end
 %%--------------------------------------------------------------------
-subscribe(Id, Repo, MinRevision) ->
-    gen_server:call(?MODULE, {subscribe, {Id, Repo, MinRevision}}).
+subscribe(Id, Repo) ->
+    gen_server:call(?MODULE, {subscribe, {Id, Repo}}).
 
 
 %%%===================================================================
@@ -67,8 +68,12 @@ subscribe(Id, Repo, MinRevision) ->
 %%--------------------------------------------------------------------
 init([]) ->
     process_flag(trap_exit, true),
+
+    ets:new(subs, [set, private, named_table]),
+    ets:new(monitors, [set, private, named_table]),
+
     lager:info("Subscription manager started"),
-    {ok, #{}}.
+    {ok, {}}.
 
 
 %%--------------------------------------------------------------------
@@ -85,11 +90,11 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({subscribe, {Pid, Repo, MinRevision}}, _From, State) ->
-    {Reply, NewState} = p_subscribe(Pid, Repo, MinRevision, State),
-    lager:debug("Subscribe event: pid: ~p, repo: ~p, min_revision: ~p - reply: ~p",
-               [Pid, Repo, MinRevision, Reply]),
-    {reply, Reply, NewState}.
+handle_call({subscribe, {Pid, Repo}}, _From, State) ->
+    Reply = p_subscribe(Pid, Repo),
+    lager:debug("Subscribe event: pid: ~p, repo: ~p - reply: ~p",
+               [Pid, Repo, Reply]),
+    {reply, Reply, State}.
 
 
 %%--------------------------------------------------------------------
@@ -117,14 +122,15 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({'DOWN', Ref, process, Pid, _}, {State, Monitors}) ->
+handle_info({'DOWN', Ref, process, Pid, _}, State) ->
     lager:debug("Monitored process is down: ref: ~p, pid: ~p", [Ref, Pid]),
-    NewMonitors = maps:remove(Ref, Monitors),
-    NewState = maps:map(fun(_, RepoState) ->
-                                p_remove_pid(Pid, RepoState)
-                        end,
-                        State),
-    {noreply, {NewState, NewMonitors}};
+
+    ets:delete(monitors, Ref),
+
+    MS = ets:fun2ms(fun(RepoState) -> p_remove_pid(Pid, RepoState) end),
+    ets:select_replace(subs, MS),
+
+    {noreply, State};
 handle_info(Info, State) ->
     lager:info("Unknown message received: ~p", [Info]),
     {noreply, State}.
@@ -163,37 +169,38 @@ code_change(OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-p_subscribe(Pid, Repo, MinRevision, {State, Monitors}) ->
+p_subscribe(Pid, Repo) ->
     % Retrieve the subscription information for Repo, or insert a new item
-    RepoState = maps:get(Repo, State, #repo_state{revision = unknown,
-                                                  root_hash = unknown,
-                                                  subscriptions = #{}}),
+    RepoState = case ets:lookup(subs, Repo) of
+                    [RS | _] ->
+                        RS;
+                    _ ->
+                        #repo_state{name = Repo,
+                                    msg = empty,
+                                    subscriptions = sets:new()}
+                end,
 
     Subscriptions = RepoState#repo_state.subscriptions,
 
-    % Retrieve the current revision of the repo
-    case RepoState#repo_state.revision of
-        unknown ->
+    % Send a message to the subscriber if a message has already been
+    % received for the repository
+    case RepoState#repo_state.msg of
+        empty ->
             false;
-        Revision when Revision >= MinRevision ->
-            % If the current revision is already >= MinRevision, notify Id
-            Pid ! {repo_updated, Revision, RepoState#repo_state.root_hash};
-        _ ->
-            false
+        Msg ->
+            Pid ! {activity, Msg}
     end,
 
+    % Register the new subcription for the repository
     Ref = erlang:monitor(process, Pid),
-    NewSubscriptions = maps:put(Pid, MinRevision, Subscriptions),
+    NewSubscriptions = set:add_element(Pid, Subscriptions),
     NewRepoState = RepoState#repo_state{subscriptions = NewSubscriptions},
-    NewState = maps:put(Repo, NewRepoState, State),
-    NewMonitors = Monitors#{ Ref => Pid },
-    {ok, {NewState, NewMonitors}}.
+    ets:insert(subs, NewRepoState),
+    ets:insert(monitors, #repo_monitor{uid = Ref, pid = Pid}),
+    ok.
 
 
 p_remove_pid(Pid, RepoState) ->
-    NewSubscriptions = maps:filter(
-                         fun(P, _) ->
-                                 P =/= Pid
-                         end,
-                         RepoState#repo_state.subscriptions),
+    NewSubscriptions = sets:del_element(Pid,
+                                        RepoState#repo_state.subscriptions),
     RepoState#repo_state{subscriptions = NewSubscriptions}.

@@ -49,7 +49,7 @@ start_link(Args) ->
 %% @spec send(Repo, Msg) -> {ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
--spec send(Repo:: binary(), Msg :: binary()) -> {ok | {error, Reason :: binary()}}.
+-spec send(Repo:: binary(), Msg :: binary()) -> ok.
 send(Repo, Msg) ->
     gen_server:call(?MODULE, {send_msg, Repo, Msg}).
 

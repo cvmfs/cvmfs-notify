@@ -11,15 +11,13 @@
     cowboy
    ]},
   {env,[]},
-  {modules, [
-             event_manager,
-             front_end,
+  {modules, [front_end,
              message,
              publisher,
              publish_handler,
              subscribe_handler,
-             util
-            ]},
+             subscriptions,
+             util]},
 
   {maintainers, []}
  ]}.

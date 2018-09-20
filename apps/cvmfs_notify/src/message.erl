@@ -11,16 +11,17 @@
 -export([validate/1]).
 
 
--spec validate(Msg :: binary()) -> {{ok, Repo :: binary()} |
-                                    {error, Reason :: binary()}}.
-validate(Msg) ->
+-spec validate(Msg :: binary()) -> {ok, Repo :: binary()} |
+                                   {error, invalid_message}.
+validate(Msg) when is_binary(Msg) ->
     case jsx:decode(Msg, [return_maps]) of
         #{<<"version">> := _Version,
           <<"timestamp">> := _Timestamp,
           <<"type">> := <<"activity">>,
           <<"repository">> := Repo,
-          <<"manifest">> := _Manifest} ->
+          <<"manifest">> := _Manifest} when is_binary(Repo) ->
             {ok, Repo};
         _ ->
-            {error, <<"invalid message">>}
+            {error, invalid_message}
     end.
+
