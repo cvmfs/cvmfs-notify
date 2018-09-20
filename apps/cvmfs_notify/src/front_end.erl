@@ -34,12 +34,13 @@ start_link([TcpPort]) ->
                                             ]}]),
 
     %% Start the HTTP listener process configured with the routing table
-    lager:info("Starting HTTP front-end"),
-    cowboy:start_clear(front_end,
-                       [{port, TcpPort}],
-                       #{env => #{dispatch => Dispatch},
-                         idle_timeout => ?TIMEOUT,
-                         inactivity_timeout => ?TIMEOUT}).
+    FE = cowboy:start_clear(front_end,
+                            [{port, TcpPort}],
+                            #{env => #{dispatch => Dispatch},
+                              idle_timeout => ?TIMEOUT,
+                              inactivity_timeout => ?TIMEOUT}),
+    lager:info("Started HTTP front-end"),
+    FE.
 
 
 -spec api_version() -> integer().
