@@ -11,7 +11,9 @@
     cowboy
    ]},
   {env,[]},
-  {modules, [front_end,
+  {modules, [consumer,
+             consumer_sup,
+             front_end,
              message,
              publisher,
              publish_handler,

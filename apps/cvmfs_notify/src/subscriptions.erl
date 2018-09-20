@@ -102,12 +102,12 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call({subscribe, {Pid, Repo}}, _From, State) ->
     Reply = p_subscribe(Pid, Repo),
-    lager:debug("Subscribe event: pid: ~p, repo: ~p - reply: ~p",
+    lager:debug("Subscribe event: pid: ~p, repo: ~p -> reply: ~p",
                [Pid, Repo, Reply]),
     {reply, Reply, State};
 handle_call({notify, {Repo, Msg}}, _From, State) ->
     Reply = p_notify(Repo, Msg),
-    lager:debug("Notify event: repo: ~p, msg: ~p - reply: ~p",
+    lager:debug("Notify event: repo: ~p, msg: ~p -> reply: ~p",
                [Repo, Msg, Reply]),
     {reply, Reply, State}.
 

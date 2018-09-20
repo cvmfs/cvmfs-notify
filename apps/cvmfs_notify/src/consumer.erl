@@ -1,21 +1,21 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc AMQP publisher
+%%% @doc AMQP consumer
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(publisher).
+-module(consumer).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--compile([{parse_transform, lager_transform}]).
-
 -behaviour(gen_server).
 
+-compile([{parse_transform, lager_transform}]).
+
 %% API
--export([start_link/1, send/2]).
+-export([start_link/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -35,27 +35,14 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Args) -> {ok, Pid} | ignore | {error, Error}
-                              when Args :: term(), Pid :: pid(),
+-spec start_link(Credentials, Repo) -> {ok, Pid} | ignore | {error, Error}
+                              when Credentials :: #{ atom() => term() },
+                                   Repo :: binary(),
+                                   Pid :: pid(),
                                    Error :: {already_start, pid()} | term().
-start_link(Args) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
+start_link(Credentials, Repo) ->
+    gen_server:start_link(?MODULE, [Credentials, Repo], []).
 
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Publish a message related to a repository
-%%
-%% @spec send(Repo, Msg) -> {ok | {error, Reason}
-%% @end
-%%--------------------------------------------------------------------
--spec send(Repo:: binary(), Msg :: binary()) -> ok.
-send(Repo, Msg) ->
-    gen_server:call(?MODULE, {send_msg, Repo, Msg}).
-
-%%===================================================================
-%% gen_server callbacks
-%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private
@@ -68,13 +55,13 @@ send(Repo, Msg) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(Args) ->
+init([Credentials, Repo]) ->
     Params = #amqp_params_network {
-        username = maps:get(user, Args),
-        password = maps:get(pass, Args),
+        username = maps:get(user, Credentials),
+        password = maps:get(pass, Credentials),
         virtual_host = <<"/cvmfs">>,
-        host = binary_to_list(maps:get(url, Args)),
-        port = maps:get(port, Args),
+        host = binary_to_list(maps:get(url, Credentials)),
+        port = maps:get(port, Credentials),
         channel_max = 2047,
         frame_max = 0,
         heartbeat = 30
@@ -82,10 +69,11 @@ init(Args) ->
     {ok, Connection} = amqp_connection:start(Params),
     {ok, Channel} = amqp_connection:open_channel(Connection),
 
-    lager:info("Publisher started"),
+    lager:info("Consumer started for repository: ~p", [Repo]),
+
     {ok, #{connection => Connection,
            channel => Channel,
-           exchange => maps:get(exchange, Args)}}.
+           exchange => maps:get(exchange, Credentials)}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -101,14 +89,8 @@ init(Args) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({send_msg, Repo, Msg}, _From, #{channel := Channel,
-                                            exchange := Exch} = State) ->
-    lager:debug("Send event: repo: ~p, msg: ~p", [Repo, Msg]),
-    Publish = #'basic.publish'{exchange = Exch,
-                               routing_key = Repo},
-    amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Msg}),
-    {reply, ok, State};
-handle_call(_Msg, _From, State) ->
+handle_call(Msg, _From, State) ->
+    lager:info("Call received: ~p", [Msg]),
     {reply, {}, State}.
 
 %%--------------------------------------------------------------------
@@ -165,8 +147,4 @@ terminate(Reason, _State) ->
 code_change(OldVsn, State, _Extra) ->
     lager:info("Code change request received. Old version: ~p", [OldVsn]),
     {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
 
