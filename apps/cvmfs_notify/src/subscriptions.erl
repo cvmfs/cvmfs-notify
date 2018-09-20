@@ -13,7 +13,7 @@
 -compile([{parse_transform, lager_transform}]).
 
 %% API
--export([start_link/0, subscribe/2]).
+-export([start_link/0, subscribe/2, notify/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -51,6 +51,16 @@ subscribe(Id, Repo) ->
     gen_server:call(?MODULE, {subscribe, {Id, Repo}}).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Send new message to all subcribers to a repository
+
+%% @end
+%%--------------------------------------------------------------------
+notify(Repo, Msg) ->
+    gen_server:call(?MODULE, {notify, {Repo, Msg}}).
+
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -69,8 +79,8 @@ subscribe(Id, Repo) ->
 init([]) ->
     process_flag(trap_exit, true),
 
-    ets:new(subs, [set, private, named_table]),
-    ets:new(monitors, [set, private, named_table]),
+    ets:new(subs, [set, protected, named_table, {keypos, 2}]),
+    ets:new(monitors, [set, protected, named_table, {keypos, 2}]),
 
     lager:info("Subscription manager started"),
     {ok, {}}.
@@ -94,7 +104,13 @@ handle_call({subscribe, {Pid, Repo}}, _From, State) ->
     Reply = p_subscribe(Pid, Repo),
     lager:debug("Subscribe event: pid: ~p, repo: ~p - reply: ~p",
                [Pid, Repo, Reply]),
+    {reply, Reply, State};
+handle_call({notify, {Repo, Msg}}, _From, State) ->
+    Reply = p_notify(Repo, Msg),
+    lager:debug("Notify event: repo: ~p, msg: ~p - reply: ~p",
+               [Repo, Msg, Reply]),
     {reply, Reply, State}.
+
 
 
 %%--------------------------------------------------------------------
@@ -127,8 +143,12 @@ handle_info({'DOWN', Ref, process, Pid, _}, State) ->
 
     ets:delete(monitors, Ref),
 
-    MS = ets:fun2ms(fun(RepoState) -> p_remove_pid(Pid, RepoState) end),
-    ets:select_replace(subs, MS),
+    NewRows = ets:foldl(fun(RS, Acc) ->
+                                [p_remove_pid(Pid, RS) | Acc]
+                        end,
+                        [],
+                        subs),
+    ets:insert(subs, NewRows),
 
     {noreply, State};
 handle_info(Info, State) ->
@@ -172,12 +192,10 @@ code_change(OldVsn, State, _Extra) ->
 p_subscribe(Pid, Repo) ->
     % Retrieve the subscription information for Repo, or insert a new item
     RepoState = case ets:lookup(subs, Repo) of
+                    [] ->
+                        p_new_repo_state(Repo, empty);
                     [RS | _] ->
-                        RS;
-                    _ ->
-                        #repo_state{name = Repo,
-                                    msg = empty,
-                                    subscriptions = sets:new()}
+                        RS
                 end,
 
     Subscriptions = RepoState#repo_state.subscriptions,
@@ -193,14 +211,35 @@ p_subscribe(Pid, Repo) ->
 
     % Register the new subcription for the repository
     Ref = erlang:monitor(process, Pid),
-    NewSubscriptions = set:add_element(Pid, Subscriptions),
+    NewSubscriptions = gb_sets:add_element(Pid, Subscriptions),
     NewRepoState = RepoState#repo_state{subscriptions = NewSubscriptions},
+
     ets:insert(subs, NewRepoState),
     ets:insert(monitors, #repo_monitor{uid = Ref, pid = Pid}),
     ok.
 
 
+p_notify(Repo, Msg) ->
+    RepoState = case ets:lookup(subs, Repo) of
+                    [RS | _] ->
+                        RS;
+                    [] ->
+                        RS = p_new_repo_state(Repo, Msg),
+                        ets:insert(subs, RS),
+                        RS
+                end,
+    Subscriptions = RepoState#repo_state.subscriptions,
+    gb_sets:fold(fun(Pid, _) -> Pid ! {activity, Msg} end, [], Subscriptions),
+    NewRepoState = RepoState#repo_state{msg = Msg},
+    ets:insert(subs, NewRepoState),
+    ok.
+
+
 p_remove_pid(Pid, RepoState) ->
-    NewSubscriptions = sets:del_element(Pid,
-                                        RepoState#repo_state.subscriptions),
+    NewSubscriptions = gb_sets:del_element(Pid, RepoState#repo_state.subscriptions),
     RepoState#repo_state{subscriptions = NewSubscriptions}.
+
+
+p_new_repo_state(Repo, Msg) ->
+    #repo_state{name = Repo, msg = Msg, subscriptions = gb_sets:new()}.
+
