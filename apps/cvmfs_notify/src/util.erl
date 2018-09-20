@@ -107,6 +107,7 @@ read_config_file(File) ->
 default_config() ->
     #{port => 4930,
       rabbitmq => #{url => <<"localhost">>,
+                    exchange => <<"repository_activity">>,
                     port => 5672,
                     user => not_given,
                     pass => not_given}}.

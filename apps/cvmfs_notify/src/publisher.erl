@@ -83,7 +83,9 @@ init(Args) ->
     {ok, Channel} = amqp_connection:open_channel(Connection),
 
     lager:info("Publisher started"),
-    {ok, #{connection => Connection, channel => Channel}}.
+    {ok, #{connection => Connection,
+           channel => Channel,
+           exchange => maps:get(exchange, Args)}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -99,8 +101,9 @@ init(Args) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({send_msg, Repo, Msg}, _From, #{channel := Channel} = State) ->
-    Publish = #'basic.publish'{exchange = <<"repository_activity">>,
+handle_call({send_msg, Repo, Msg}, _From, #{channel := Channel,
+                                            exchange := Exch} = State) ->
+    Publish = #'basic.publish'{exchange = Exch,
                                routing_key = Repo},
     amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Msg}),
     {reply, ok, State};
