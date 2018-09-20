@@ -68,12 +68,26 @@ init([Credentials, Repo]) ->
     },
     {ok, Connection} = amqp_connection:start(Params),
     {ok, Channel} = amqp_connection:open_channel(Connection),
+    #'queue.declare_ok'{queue = Queue} = amqp_channel:call(Channel,
+                                                           #'queue.declare'{exclusive=true}),
+
+    Binding = #'queue.bind'{
+        queue       = Queue,
+        exchange    = <<"repository_activity">>,
+        routing_key = Repo
+    },
+    #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding),
+
+    Sub = #'basic.consume'{queue = Queue},
+    #'basic.consume_ok'{consumer_tag = Tag} = amqp_channel:subscribe(Channel, Sub, self()),
 
     lager:info("Consumer started for repository: ~p", [Repo]),
 
-    {ok, #{connection => Connection,
+    {ok, #{repo_name => Repo,
+           connection => Connection,
            channel => Channel,
-           exchange => maps:get(exchange, Credentials)}}.
+           exchange => maps:get(exchange, Credentials),
+           consumer_tag => Tag}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -117,8 +131,16 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) ->
-    lager:info("Unknown message received: ~p", [Info]),
+handle_info(#'basic.consume_ok'{}, #{repo_name := Repo} = State) ->
+    lager:info("Subscription confirmed for repo: ~p", [Repo]),
+    {noreply, State};
+handle_info(#'basic.cancel_ok'{}, #{repo_name := Repo} = State) ->
+    lager:info("Subscription cancelled for repo: ~p", [Repo]),
+    {noreply, State};
+handle_info({#'basic.deliver'{delivery_tag = Tag}, Msg},
+            #{repo_name := Repo, channel := Channel} = State) ->
+    lager:info("Received message: msg: ~p, repo: ~p", [Msg, Repo]),
+    amqp_channel:cast(Channel, #'basic.ack'{delivery_tag = Tag}),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
