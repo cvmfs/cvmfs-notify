@@ -22,8 +22,8 @@
 -define(SERVER, ?MODULE).
 
 %% Records
--record(repo_monitor, {uid, pid}).
--record(repo_state, {name, msg, subscriptions}).
+-record(mon, {uid, repo}).
+-record(repo, {name, msg, subscriptions}).
 
 
 %%%===================================================================
@@ -79,8 +79,8 @@ notify(Repo, Msg) ->
 init([]) ->
     process_flag(trap_exit, true),
 
-    ets:new(subs, [set, protected, named_table, {keypos, 2}]),
-    ets:new(monitors, [set, protected, named_table, {keypos, 2}]),
+    ets:new(repos, [set, private, named_table, {keypos, 2}]),
+    ets:new(monitors, [set, private, named_table, {keypos, 2}]),
 
     lager:info("Subscription manager started"),
     {ok, {}}.
@@ -141,14 +141,12 @@ handle_cast(Msg, State) ->
 handle_info({'DOWN', Ref, process, Pid, _}, State) ->
     lager:debug("Monitored process is down: ref: ~p, pid: ~p", [Ref, Pid]),
 
+    [#mon{repo = Repo} | _] = ets:lookup(monitors, Ref),
     ets:delete(monitors, Ref),
 
-    NewRows = ets:foldl(fun(RS, Acc) ->
-                                [p_remove_pid(Pid, RS) | Acc]
-                        end,
-                        [],
-                        subs),
-    ets:insert(subs, NewRows),
+    [RS | _] = ets:lookup(repos, Repo),
+    NewRS = p_remove_pid(Pid, RS),
+    ets:insert(repos, NewRS),
 
     {noreply, State};
 handle_info(Info, State) ->
@@ -191,55 +189,55 @@ code_change(OldVsn, State, _Extra) ->
 
 p_subscribe(Pid, Repo) ->
     % Retrieve the subscription information for Repo, or insert a new item
-    RepoState = case ets:lookup(subs, Repo) of
+    RepoState = case ets:lookup(repos, Repo) of
                     [] ->
                         p_new_repo_state(Repo, empty);
                     [RS | _] ->
                         RS
                 end,
 
-    Subscriptions = RepoState#repo_state.subscriptions,
+    Subscriptions = RepoState#repo.subscriptions,
 
     % Send a message to the subscriber if a message has already been
     % received for the repository
-    case RepoState#repo_state.msg of
+    case RepoState#repo.msg of
         empty ->
             false;
         Msg ->
             Pid ! {activity, Msg}
     end,
 
-    % Register the new subcription for the repository
+    % Register the new subscription for the repository
     Ref = erlang:monitor(process, Pid),
     NewSubscriptions = gb_sets:add_element(Pid, Subscriptions),
-    NewRepoState = RepoState#repo_state{subscriptions = NewSubscriptions},
+    NewRepoState = RepoState#repo{subscriptions = NewSubscriptions},
 
-    ets:insert(subs, NewRepoState),
-    ets:insert(monitors, #repo_monitor{uid = Ref, pid = Pid}),
+    ets:insert(repos, NewRepoState),
+    ets:insert(monitors, #mon{uid = Ref, repo = Repo}),
     ok.
 
 
 p_notify(Repo, Msg) ->
-    RepoState = case ets:lookup(subs, Repo) of
+    RepoState = case ets:lookup(repos, Repo) of
                     [RS | _] ->
                         RS;
                     [] ->
                         RS = p_new_repo_state(Repo, Msg),
-                        ets:insert(subs, RS),
+                        ets:insert(repos, RS),
                         RS
                 end,
-    Subscriptions = RepoState#repo_state.subscriptions,
+    Subscriptions = RepoState#repo.subscriptions,
     gb_sets:fold(fun(Pid, _) -> Pid ! {activity, Msg} end, [], Subscriptions),
-    NewRepoState = RepoState#repo_state{msg = Msg},
-    ets:insert(subs, NewRepoState),
+    NewRepoState = RepoState#repo{msg = Msg},
+    ets:insert(repos, NewRepoState),
     ok.
 
 
 p_remove_pid(Pid, RepoState) ->
-    NewSubscriptions = gb_sets:del_element(Pid, RepoState#repo_state.subscriptions),
-    RepoState#repo_state{subscriptions = NewSubscriptions}.
+    NewSubscriptions = gb_sets:del_element(Pid, RepoState#repo.subscriptions),
+    RepoState#repo{subscriptions = NewSubscriptions}.
 
 
 p_new_repo_state(Repo, Msg) ->
-    #repo_state{name = Repo, msg = Msg, subscriptions = gb_sets:new()}.
+    #repo{name = Repo, msg = Msg, subscriptions = gb_sets:new()}.
 
