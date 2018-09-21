@@ -15,7 +15,8 @@
     cowboy
    ]},
   {env,[]},
-  {modules, [consumer,
+  {modules, [amqp_interface,
+             consumer,
              consumer_mgr,
              consumer_sup,
              front_end,

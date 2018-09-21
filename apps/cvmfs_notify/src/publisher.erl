@@ -8,8 +8,6 @@
 
 -module(publisher).
 
--include_lib("amqp_client/include/amqp_client.hrl").
-
 -compile([{parse_transform, lager_transform}]).
 
 -behaviour(gen_server).
@@ -53,6 +51,7 @@ start_link(Args) ->
 send(Repo, Msg) ->
     gen_server:call(?MODULE, {send_msg, Repo, Msg}).
 
+
 %%===================================================================
 %% gen_server callbacks
 %%===================================================================
@@ -69,23 +68,10 @@ send(Repo, Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 init(Args) ->
-    Params = #amqp_params_network {
-        username = maps:get(user, Args),
-        password = maps:get(pass, Args),
-        virtual_host = <<"/cvmfs">>,
-        host = binary_to_list(maps:get(url, Args)),
-        port = maps:get(port, Args),
-        channel_max = 2047,
-        frame_max = 0,
-        heartbeat = 30
-    },
-    {ok, Connection} = amqp_connection:start(Params),
-    {ok, Channel} = amqp_connection:open_channel(Connection),
-
+    ConnectionState = amqp_interface:connect(Args),
     lager:info("Publisher started"),
-    {ok, #{connection => Connection,
-           channel => Channel,
-           exchange => maps:get(exchange, Args)}}.
+    {ok, ConnectionState}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -101,11 +87,8 @@ init(Args) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({send_msg, Repo, Msg}, _From, #{channel := Channel,
-                                            exchange := Exch} = State) ->
-    Publish = #'basic.publish'{exchange = Exch,
-                               routing_key = Repo},
-    amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Msg}),
+handle_call({send_msg, Repo, Msg}, _From, State) ->
+    amqp_interface:publish(Repo, Msg, State),
     {reply, ok, State}.
 
 
