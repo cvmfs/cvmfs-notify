@@ -24,14 +24,13 @@
 %%--------------------------------------------------------------------
 init(Req0 = #{method := <<"POST">>}, State) ->
     Uid = util:unique_id(),
-    {URI, T0} = util:tick(Uid, Req0, micro_seconds),
+    {URI, T0} = util:req_tick(Uid, Req0, micro_seconds),
 
     {ok, Body, Req1} = read_body(Req0),
 
-    lager:debug("Received message: ~p", [Body]),
-
     {Status, Reply} = case message:validate(Body) of
                           {ok, Repo} ->
+                              lager:debug("Publish request: repo: ~p, msg: ~p", [Repo, Body]),
                               publisher:send(Repo, Body),
                               {200, #{<<"status">> => <<"ok">>}};
                           {error, Reason} ->
@@ -43,7 +42,7 @@ init(Req0 = #{method := <<"POST">>}, State) ->
                             jsx:encode(Reply),
                             Req1),
 
-    util:tock(Uid, URI, T0, micro_seconds),
+    util:req_tock(Uid, URI, T0, micro_seconds),
     {ok, ReqF, State}.
 
 

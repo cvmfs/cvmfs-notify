@@ -103,13 +103,11 @@ init(Args) ->
 %%--------------------------------------------------------------------
 handle_call({send_msg, Repo, Msg}, _From, #{channel := Channel,
                                             exchange := Exch} = State) ->
-    lager:debug("Send event: repo: ~p, msg: ~p", [Repo, Msg]),
     Publish = #'basic.publish'{exchange = Exch,
                                routing_key = Repo},
     amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Msg}),
-    {reply, ok, State};
-handle_call(_Msg, _From, State) ->
-    {reply, {}, State}.
+    {reply, ok, State}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -122,8 +120,9 @@ handle_call(_Msg, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    lager:info("Cast received: ~p -> noreply", [Msg]),
+    lager:notice("Cast received: ~p -> noreply", [Msg]),
     {noreply, State}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -136,8 +135,9 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
-    lager:info("Unknown message received: ~p", [Info]),
+    lager:notice("Unknown message received: ~p", [Info]),
     {noreply, State}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -154,6 +154,7 @@ terminate(Reason, _State) ->
     lager:info("Terminating with reason: ~p", [Reason]),
     ok.
 
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -165,8 +166,3 @@ terminate(Reason, _State) ->
 code_change(OldVsn, State, _Extra) ->
     lager:info("Code change request received. Old version: ~p", [OldVsn]),
     {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-

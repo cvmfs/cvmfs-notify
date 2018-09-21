@@ -25,7 +25,7 @@
 %%--------------------------------------------------------------------
 init(Req0, State) ->
     Uid = util:unique_id(),
-    {URI, T0} = util:tick(Uid, Req0, micro_seconds),
+    {URI, T0} = util:req_tick(Uid, Req0, micro_seconds),
 
     Reply = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req0) of
                 undefined ->
@@ -42,23 +42,24 @@ init(Req0, State) ->
                     end
             end,
 
-    util:tock(Uid, URI, T0, micro_seconds),
+    util:req_tock(Uid, URI, T0, micro_seconds),
     Reply.
 
 
 %% Websocket callbacks
 
 websocket_init(State) ->
-    lager:debug("Websocket upgrade successful - State: ~p", [State]),
+    lager:trace("Websocket upgrade successful - State: ~p", [State]),
     {ok, #{}, hibernate}.
 
 websocket_handle({binary, Msg} = Frame, State) ->
-    lager:debug("Frame received from client: ~p, state: ~p", [Frame, State]),
+    lager:trace("Frame received from client: ~p, state: ~p", [Frame, State]),
     case jsx:is_json(Msg) of
         true ->
             case jsx:decode(Msg, [return_maps]) of
                 #{<<"version">> := _Version,
                   <<"repo">> := Repo} ->
+                    lager:debug("Subscription request: repo: ~p, pid: ~p", [Repo, self()]),
                     case subscriptions:subscribe(self(), Repo) of
                         ok ->
                             {ok, State, hibernate};
@@ -81,13 +82,13 @@ websocket_handle({binary, Msg} = Frame, State) ->
              State, hibernate}
     end;
 websocket_handle({ping, Msg}, State) ->
-    lager:debug("Ping received with data: ~p", [Msg]),
+    lager:trace("Ping received with data: ~p", [Msg]),
     {ok, State, hibernate}.
 
 websocket_info({activity, Msg} = Info, State) ->
-    lager:debug("Repository message received: ~p, state: ~p", [Info, State]),
+    lager:trace("Message received from backend: ~p, state: ~p", [Info, State]),
     {reply, {binary, Msg}, State, hibernate};
 websocket_info(Info, State) ->
-    lager:info("Unknown message received: ~p, state: ~p", [Info, State]),
+    lager:notice("Unknown message received: ~p, state: ~p", [Info, State]),
     {ok, State, hibernate}.
 

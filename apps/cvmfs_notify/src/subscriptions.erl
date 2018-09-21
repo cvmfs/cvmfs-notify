@@ -101,15 +101,9 @@ init([]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({subscribe, {Pid, Repo}}, _From, State) ->
-    Reply = p_subscribe(Pid, Repo),
-    lager:debug("Subscribe event: pid: ~p, repo: ~p -> reply: ~p",
-               [Pid, Repo, Reply]),
-    {reply, Reply, State};
+    {reply, p_subscribe(Pid, Repo), State};
 handle_call({notify, {Repo, Msg}}, _From, State) ->
-    Reply = p_notify(Repo, Msg),
-    lager:debug("Notify event: repo: ~p, msg: ~p -> reply: ~p",
-               [Repo, Msg, Reply]),
-    {reply, Reply, State}.
+    {reply, p_notify(Repo, Msg), State}.
 
 
 
@@ -124,7 +118,7 @@ handle_call({notify, {Repo, Msg}}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    lager:debug("Cast received: ~p -> noreply", [Msg]),
+    lager:notice("Cast received: ~p -> noreply", [Msg]),
     {noreply, State}.
 
 
@@ -150,7 +144,7 @@ handle_info({'DOWN', Ref, process, Pid, _}, State) ->
 
     {noreply, State};
 handle_info(Info, State) ->
-    lager:info("Unknown message received: ~p", [Info]),
+    lager:notice("Unknown message received: ~p", [Info]),
     {noreply, State}.
 
 

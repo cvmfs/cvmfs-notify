@@ -104,7 +104,7 @@ init([Credentials, Repo]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, _From, State) ->
-    lager:info("Call received: ~p", [Msg]),
+    lager:notice("Call received: ~p", [Msg]),
     {reply, {}, State}.
 
 %%--------------------------------------------------------------------
@@ -118,7 +118,7 @@ handle_call(Msg, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    lager:info("Cast received: ~p -> noreply", [Msg]),
+    lager:notice("Cast received: ~p -> noreply", [Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -140,8 +140,9 @@ handle_info(#'basic.cancel_ok'{}, #{repo_name := Repo} = State) ->
 handle_info({#'basic.deliver'{delivery_tag = Tag}, Msg},
             #{repo_name := Repo, channel := Channel} = State) ->
     #amqp_msg{payload = Payload} = Msg,
-    lager:debug("Received message: msg: ~p, repo: ~p", [Payload, Repo]),
     amqp_channel:cast(Channel, #'basic.ack'{delivery_tag = Tag}),
+    lager:debug("Back-end message received for repo: ~p, msg: ~p",
+                [Repo, Payload]),
     subscriptions:notify(Repo, Payload),
     {noreply, State}.
 

@@ -88,7 +88,6 @@ init([]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({ensure_started, Repo}, _From, Consumers) ->
-    lager:debug("Start consumer request for repo: ~p", [Repo]),
     NewConsumers = case gb_sets:is_element(Repo, Consumers) of
         false ->
             consumer_sup:start_consumer(Repo),
@@ -110,7 +109,7 @@ handle_call({ensure_started, Repo}, _From, Consumers) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    lager:info("Cast received: ~p -> noreply", [Msg]),
+    lager:notice("Cast received: ~p -> noreply", [Msg]),
     {noreply, State}.
 
 
@@ -125,7 +124,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Msg, State) ->
-    lager:info("Unknown message received: ~p", [Msg]),
+    lager:notice("Unknown message received: ~p", [Msg]),
     {noreply, State}.
 
 
@@ -154,5 +153,5 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, _Extra) ->
-    lager:info("Code change request received. Old version: ~p", [OldVsn]),
+    lager:notice("Code change request received. Old version: ~p", [OldVsn]),
     {ok, State}.
