@@ -79,8 +79,8 @@ notify(Repo, Msg) ->
 init([]) ->
     process_flag(trap_exit, true),
 
-    ets:new(repos, [set, private, named_table, {keypos, 2}]),
-    ets:new(monitors, [set, private, named_table, {keypos, 2}]),
+    ets:new(repos, [set, protected, named_table, {keypos, 2}]),
+    ets:new(monitors, [set, protected, named_table, {keypos, 2}]),
 
     lager:info("Subscription manager started"),
     {ok, {}}.
@@ -214,6 +214,10 @@ p_subscribe(Pid, Repo) ->
 
     ets:insert(repos, NewRepoState),
     ets:insert(monitors, #mon{uid = Ref, repo = Repo}),
+
+    % Ensure that a backend message consumer is started for the repository
+    consumer_mgr:ensure_started(Repo),
+
     ok.
 
 
