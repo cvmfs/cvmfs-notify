@@ -1,12 +1,12 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc AMQP consumer
+%%% @doc Consumer manager keeps track of consumers
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(consumer).
+-module(consumer_mgr).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -15,7 +15,7 @@
 -compile([{parse_transform, lager_transform}]).
 
 %% API
--export([start_link/2]).
+-export([start_link/0, ensure_started/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -35,13 +35,26 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Credentials, Repo) -> {ok, Pid} | ignore | {error, Error}
-                              when Credentials :: #{ atom() => term() },
-                                   Repo :: binary(),
+-spec start_link() -> {ok, Pid} | ignore | {error, Error}
+                            when Pid :: pid(),
+                                 Error :: {already_start, pid()} | term().
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Start a new AMQP consumer for the given repository name
+%%
+%% @spec ensure_started(Repo) -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+-spec ensure_started(Repo) -> {ok, Pid} | ignore | {error, Error}
+                              when Repo :: binary(),
                                    Pid :: pid(),
                                    Error :: {already_start, pid()} | term().
-start_link(Credentials, Repo) ->
-    gen_server:start_link(?MODULE, [Credentials, Repo], []).
+ensure_started(Repo) ->
+    gen_server:call(?MODULE, {ensure_started, Repo}).
 
 
 %%--------------------------------------------------------------------
@@ -55,39 +68,10 @@ start_link(Credentials, Repo) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Credentials, Repo]) ->
-    Params = #amqp_params_network {
-        username = maps:get(user, Credentials),
-        password = maps:get(pass, Credentials),
-        virtual_host = <<"/cvmfs">>,
-        host = binary_to_list(maps:get(url, Credentials)),
-        port = maps:get(port, Credentials),
-        channel_max = 2047,
-        frame_max = 0,
-        heartbeat = 30
-    },
-    {ok, Connection} = amqp_connection:start(Params),
-    {ok, Channel} = amqp_connection:open_channel(Connection),
-    #'queue.declare_ok'{queue = Queue} = amqp_channel:call(Channel,
-                                                           #'queue.declare'{exclusive=true}),
+init([]) ->
+    lager:info("Consumer manager started."),
+    {ok, gb_sets:new()}.
 
-    Binding = #'queue.bind'{
-        queue       = Queue,
-        exchange    = <<"repository_activity">>,
-        routing_key = Repo
-    },
-    #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding),
-
-    Sub = #'basic.consume'{queue = Queue},
-    #'basic.consume_ok'{consumer_tag = Tag} = amqp_channel:subscribe(Channel, Sub, self()),
-
-    lager:info("Consumer started for repository: ~p", [Repo]),
-
-    {ok, #{repo_name => Repo,
-           connection => Connection,
-           channel => Channel,
-           exchange => maps:get(exchange, Credentials),
-           consumer_tag => Tag}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -103,9 +87,17 @@ init([Credentials, Repo]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(Msg, _From, State) ->
-    lager:info("Call received: ~p", [Msg]),
-    {reply, {}, State}.
+handle_call({ensure_started, Repo}, _From, Consumers) ->
+    lager:debug("Start consumer request for repo: ~p", [Repo]),
+    NewConsumers = case gb_sets:is_element(Repo, Consumers) of
+        false ->
+            consumer_sup:start_consumer(Repo),
+            gb_sets:add_element(Repo, Consumers);
+        true ->
+            Consumers
+    end,
+    {reply, {}, NewConsumers}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -121,6 +113,7 @@ handle_cast(Msg, State) ->
     lager:info("Cast received: ~p -> noreply", [Msg]),
     {noreply, State}.
 
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -131,19 +124,10 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(#'basic.consume_ok'{}, #{repo_name := Repo} = State) ->
-    lager:debug("Subscription confirmed for repo: ~p", [Repo]),
-    {noreply, State};
-handle_info(#'basic.cancel_ok'{}, #{repo_name := Repo} = State) ->
-    lager:debug("Subscription cancelled for repo: ~p", [Repo]),
-    {noreply, State};
-handle_info({#'basic.deliver'{delivery_tag = Tag}, Msg},
-            #{repo_name := Repo, channel := Channel} = State) ->
-    #amqp_msg{payload = Payload} = Msg,
-    lager:debug("Received message: msg: ~p, repo: ~p", [Payload, Repo]),
-    amqp_channel:cast(Channel, #'basic.ack'{delivery_tag = Tag}),
-    subscriptions:notify(Repo, Payload),
+handle_info(Msg, State) ->
+    lager:info("Unknown message received: ~p", [Msg]),
     {noreply, State}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -160,6 +144,7 @@ terminate(Reason, _State) ->
     lager:info("Terminating with reason: ~p", [Reason]),
     ok.
 
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -171,4 +156,3 @@ terminate(Reason, _State) ->
 code_change(OldVsn, State, _Extra) ->
     lager:info("Code change request received. Old version: ~p", [OldVsn]),
     {ok, State}.
-
