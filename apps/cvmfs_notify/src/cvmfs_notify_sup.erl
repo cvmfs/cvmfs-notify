@@ -31,8 +31,9 @@ start_link(Args) ->
 %% Supervisor callbacks
 %%====================================================================
 
-init(Args) ->
+init({Args, AMQPModule}) ->
     Credentials = maps:get(rabbitmq, Args),
+
     SupervisorSpecs = #{strategy => one_for_all,
                         intensity => 5,
                         period => 5},
@@ -44,7 +45,7 @@ init(Args) ->
         type => worker,
         modules => [subscriptions]},
       #{id => publisher,
-        start => {publisher, start_link, [Credentials]},
+        start => {publisher, start_link, [{Credentials, AMQPModule}]},
         restart => permanent,
         shutdown => 2000,
         type => worker,
@@ -56,7 +57,7 @@ init(Args) ->
         type => worker,
         modules => [consumer_mgr]},
       #{id => consumer_sup,
-        start => {consumer_sup, start_link, [Credentials]},
+        start => {consumer_sup, start_link, [{Credentials, AMQPModule}]},
         restart => permanent,
         shutdown => 2000,
         type => supervisor,

@@ -21,6 +21,7 @@
              consumer_sup,
              front_end,
              message,
+             mock_amqp_interface,
              publisher,
              publish_handler,
              subscribe_handler,

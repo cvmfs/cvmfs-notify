@@ -33,13 +33,14 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Credentials, Repo) -> {ok, Pid} | ignore | {error, Error}
-                              when Credentials :: #{ atom() => term() },
+-spec start_link(Args, Repo) ->
+    {ok, Pid} | ignore | {error, Error}
+                              when Args :: term(),
                                    Repo :: binary(),
                                    Pid :: pid(),
                                    Error :: {already_start, pid()} | term().
-start_link(Credentials, Repo) ->
-    gen_server:start_link(?MODULE, [Credentials, Repo], []).
+start_link(Args, Repo) ->
+    gen_server:start_link(?MODULE, {Args, Repo}, []).
 
 
 %%--------------------------------------------------------------------
@@ -53,12 +54,12 @@ start_link(Credentials, Repo) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Credentials, Repo]) ->
-    ConnectionState = amqp_interface:connect(Credentials),
-    amqp_interface:consume(ConnectionState, Repo),
+init({{Credentials, AMQPModule}, Repo}) ->
+    ConnectionState = AMQPModule:connect(Credentials),
+    AMQPModule:consume(ConnectionState, Repo),
     lager:info("Consumer started for repository: ~p", [Repo]),
 
-    {ok, maps:put(repo_name, Repo, ConnectionState)}.
+    {ok, {maps:put(repo_name, Repo, ConnectionState), AMQPModule}}.
 
 
 %%--------------------------------------------------------------------
@@ -105,12 +106,12 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Msg, State) ->
+handle_info(Msg, {State, AMQPModule}) ->
     HandleFun = fun(Repo, Payload) ->
         subscriptions:notify(Repo, Payload)
     end,
-    amqp_interface:handle(Msg, State, HandleFun),
-    {noreply, State}.
+    AMQPModule:handle(Msg, State, HandleFun),
+    {noreply, {State, AMQPModule}}.
 
 
 %%--------------------------------------------------------------------

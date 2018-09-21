@@ -36,13 +36,13 @@ start_consumer(Repo) ->
 %% Supervisor callbacks
 %%====================================================================
 
-init(Credentials) ->
+init(Args) ->
     SupervisorSpecs = #{strategy => simple_one_for_one,
                         intensity => 5,
                         period => 5},
     WorkerSpecs = [
       #{id => consumer,
-        start => {consumer, start_link, [Credentials]},
+        start => {consumer, start_link, [Args]},
         restart => permanent,
         shutdown => 2000,
         type => worker,

@@ -33,8 +33,10 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Args) -> {ok, Pid} | ignore | {error, Error}
-                              when Args :: term(), Pid :: pid(),
+-spec start_link(Args) ->
+    {ok, Pid} | ignore | {error, Error}
+                              when Args :: term(),
+                                   Pid :: pid(),
                                    Error :: {already_start, pid()} | term().
 start_link(Args) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
@@ -67,10 +69,10 @@ send(Repo, Msg) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(Args) ->
-    ConnectionState = amqp_interface:connect(Args),
+init({Args, AMQPModule}) ->
+    ConnectionState = AMQPModule:connect(Args),
     lager:info("Publisher started"),
-    {ok, ConnectionState}.
+    {ok, {ConnectionState, AMQPModule}}.
 
 
 %%--------------------------------------------------------------------
@@ -87,9 +89,9 @@ init(Args) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({send_msg, Repo, Msg}, _From, State) ->
-    amqp_interface:publish(Repo, Msg, State),
-    {reply, ok, State}.
+handle_call({send_msg, Repo, Msg}, _From, {State, AMQPModule}) ->
+    AMQPModule:publish(Repo, Msg, State),
+    {reply, ok, {State, AMQPModule}}.
 
 
 %%--------------------------------------------------------------------
