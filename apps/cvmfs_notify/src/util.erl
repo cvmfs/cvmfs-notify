@@ -32,13 +32,13 @@ unique_id() ->
 req_tick(Uid, Req, Unit) ->
     T = erlang:monotonic_time(Unit),
     URI = cowboy_req:uri(Req),
-    lager:trace("HTTP req received - Uid: ~p, URI: ~p", [Uid, URI]),
+    lager:debug("HTTP req received - Uid: ~p, URI: ~p", [Uid, URI]),
     {URI, T}.
 
 
 req_tock(Uid, URI, T0, Unit) ->
     T1 = erlang:monotonic_time(Unit),
-    lager:trace("HTTP req handled - Uid: ~p, URI: ~p, time to process = ~p usec",
+    lager:debug("HTTP req handled - Uid: ~p, URI: ~p, time to process = ~p usec",
                [Uid, URI, T1 - T0]).
 
 
@@ -71,8 +71,8 @@ read_vars() ->
 
 
 set_lager_log_level(LogLevel) ->
-    Levels = [<<"debug">>, <<"info">>, <<"notice">>, <<"warning">>, <<"error">>,
-              <<"critical">>, <<"alert">>, <<"emergency">>],
+    Levels = [<<"debug">>, <<"info">>, <<"notice">>, <<"warning">>,
+              <<"error">>, <<"critical">>, <<"alert">>, <<"emergency">>],
     case lists:member(LogLevel, Levels) of
         true ->
             lager:set_loglevel(lager_file_backend, "main.log",
