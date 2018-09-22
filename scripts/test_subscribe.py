@@ -11,7 +11,7 @@ from optparse import OptionParser
 
 async def do_request(url, repo_name, continous, verbose):
     msg = str.encode(json.dumps({'version' : 1,
-                                 'repo' : repo_name}))
+                                 'repository' : repo_name}))
 
     async with websockets.connect(url) as websocket:
         if verbose:

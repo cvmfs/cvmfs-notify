@@ -49,16 +49,16 @@ init(Req0, State) ->
 %% Websocket callbacks
 
 websocket_init(State) ->
-    lager:trace("Websocket upgrade successful - State: ~p", [State]),
+    lager:debug("Websocket upgrade successful - State: ~p", [State]),
     {ok, #{}, hibernate}.
 
 websocket_handle({binary, Msg} = Frame, State) ->
-    lager:trace("Frame received from client: ~p, state: ~p", [Frame, State]),
+    lager:debug("Frame received from client: ~p, state: ~p", [Frame, State]),
     case jsx:is_json(Msg) of
         true ->
             case jsx:decode(Msg, [return_maps]) of
                 #{<<"version">> := _Version,
-                  <<"repo">> := Repo} ->
+                  <<"repository">> := Repo} ->
                     lager:debug("Subscription request: repo: ~p, pid: ~p", [Repo, self()]),
                     case subscriptions:subscribe(self(), Repo) of
                         ok ->
@@ -82,11 +82,11 @@ websocket_handle({binary, Msg} = Frame, State) ->
              State, hibernate}
     end;
 websocket_handle({ping, Msg}, State) ->
-    lager:trace("Ping received with data: ~p", [Msg]),
+    lager:debug("Ping received with data: ~p", [Msg]),
     {ok, State, hibernate}.
 
 websocket_info({activity, Msg} = Info, State) ->
-    lager:trace("Message received from backend: ~p, state: ~p", [Info, State]),
+    lager:debug("Message received from backend: ~p, state: ~p", [Info, State]),
     {reply, {binary, Msg}, State, hibernate};
 websocket_info(Info, State) ->
     lager:notice("Unknown message received: ~p, state: ~p", [Info, State]),
