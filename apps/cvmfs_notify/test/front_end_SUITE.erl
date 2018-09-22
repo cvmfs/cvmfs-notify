@@ -20,8 +20,14 @@
          publish_subscribe_wait_publish/1]).
 
 -define(API_ROOT, "/api/v1").
+-define(API_VER, 1).
 
 -define(TEST_TIMEOUT, 5000).
+
+-define(PORT, 4930).
+
+-define(TEST_REPO, <<"test.repo.org">>).
+-define(TEST_MANIFEST, <<"abcdef">>).
 
 %% Test description
 
@@ -36,10 +42,8 @@ all() ->
 init_per_suite(Config) ->
     application:ensure_all_started(gun),
 
-    TcpPort = 8081,
     ok = application:load(cvmfs_notify),
-    TestUserVars = #{fe_tcp_port => TcpPort},
-    ok = application:set_env(cvmfs_notify, user_config, TestUserVars),
+    ok = application:set_env(cvmfs_notify, testing_mode, true),
     {ok, _} = application:ensure_all_started(cvmfs_notify),
     Config.
 
@@ -61,51 +65,61 @@ end_per_testcase(_TestCase, _Config) ->
 subscribe_wait_publish(Config) ->
     Parent = self(),
     spawn_link(fun() ->
-                       subscribe_wait(<<"test_repo">>, 1, Parent, Config)
+                       subscribe_wait(?TEST_REPO, Parent, Config)
                end),
     ct:sleep(500),
-    publish(<<"test_repo">>, 1, <<"abcdef">>, 1),
+    publish(?TEST_REPO, ?TEST_MANIFEST),
     receive
-        #{<<"status">> := Status, <<"revision">> := Revision, <<"root_hash">> := RootHash} ->
-            <<"ok">> = Status,
-            1 = Revision,
-            <<"abcdef">> = RootHash
+        #{<<"version">> := ?API_VER,
+          <<"timestamp">> := _Timestamp,
+          <<"repository">> := Repo,
+          <<"manifest">> := Manifest} ->
+            Repo = ?TEST_REPO,
+            Manifest = ?TEST_MANIFEST
     after ?TEST_TIMEOUT ->
             exit(no_reply_from_test_process)
     end.
 
 publish_subscribe_nowait(Config) ->
     Parent = self(),
-    publish(<<"test_repo">>, 1, <<"abcdef">>, 1),
+    publish(?TEST_REPO, ?TEST_MANIFEST),
     spawn_link(fun() ->
-                       subscribe_wait(<<"test_repo">>, 1, Parent, Config)
+                       subscribe_wait(?TEST_REPO, Parent, Config)
                end),
     receive
-        #{<<"status">> := Status, <<"revision">> := Revision, <<"root_hash">> := RootHash} ->
-            <<"ok">> = Status,
-            1 = Revision,
-            <<"abcdef">> = RootHash
+        #{<<"version">> := ?API_VER,
+          <<"timestamp">> := _Timestamp,
+          <<"repository">> := Repo,
+          <<"manifest">> := Manifest} ->
+            Repo = ?TEST_REPO,
+            Manifest = ?TEST_MANIFEST
     after ?TEST_TIMEOUT ->
             exit(no_reply_from_test_process)
     end.
 
 publish_subscribe_wait_publish(Config) ->
     Parent = self(),
-    publish(<<"test_repo">>, 1, <<"abcdef">>, 1),
+    publish(?TEST_REPO, ?TEST_MANIFEST),
     spawn_link(fun() ->
-                       subscribe_wait(<<"test_repo">>, 2, Parent, Config)
+                       subscribe_wait(?TEST_REPO, Parent, Config)
                end),
-    ct:sleep(500),
-    publish(<<"test_repo">>, 2, <<"ghijkl">>, 1),
     receive
-        #{<<"status">> := Status, <<"revision">> := Revision, <<"root_hash">> := RootHash} ->
-            <<"ok">> = Status,
-            2 = Revision,
-            <<"ghijkl">> = RootHash
+        #{<<"manifest">> := Manifest1} ->
+            Manifest1 = ?TEST_MANIFEST
+    after ?TEST_TIMEOUT ->
+            exit(no_reply_from_test_process)
+    end,
+    ct:sleep(500),
+    spawn_link(fun() ->
+                       subscribe_wait(?TEST_REPO, Parent, Config)
+               end),
+    publish(?TEST_REPO, <<"ghijkl">>),
+    receive
+        #{<<"manifest">> := Manifest2} ->
+            Manifest2 = <<"ghijkl">>
     after ?TEST_TIMEOUT ->
             exit(no_reply_from_test_process)
     end.
-
 
 %% Private functions
 
@@ -117,20 +131,20 @@ wait(ConnPid, StreamRef) ->
             {error, reply_without_body}
     end.
 
-subscribe_wait(Repo, MinRevision, Parent, _Config) ->
-    {ok, ConnPid} = gun:open("localhost", 8081),
+subscribe_wait(Repo, Parent, _Config) ->
+    {ok, ConnPid} = gun:open("localhost", ?PORT),
     {ok, http} = gun:await_up(ConnPid),
-    gun:ws_upgrade(ConnPid, ?API_ROOT ++ "/notify"),
+    gun:ws_upgrade(ConnPid, ?API_ROOT ++ "/subscribe"),
     Ret = receive
-              {gun_ws_upgrade, ConnPid, ok, _Headers} ->
-                  Req = jsx:encode(#{<<"repo">> => Repo,
-                                     <<"min_revision">> => MinRevision}),
+              {gun_upgrade, ConnPid, _Ref, [<<"websocket">>], _Headers} ->
+                  Req = jsx:encode(#{<<"version">> => ?API_VER,
+                                     <<"repository">> => Repo}),
                   gun:ws_send(ConnPid, {binary, Req}),
                   receive
-                      {gun_ws, ConnPid, {binary, ReplyBin}} ->
+                      {gun_ws, ConnPid, _Ref, {binary, ReplyBin}} ->
                           jsx:decode(ReplyBin, [return_maps])
                   after ?TEST_TIMEOUT ->
-                          exit(timeout)
+                      exit(timeout)
                   end
           after ?TEST_TIMEOUT ->
                   exit(timeout)
@@ -138,12 +152,13 @@ subscribe_wait(Repo, MinRevision, Parent, _Config) ->
     Parent ! Ret,
     ok = gun:shutdown(ConnPid).
 
-publish(Repo, Revision, RootHash, ApiVersion) ->
-    Body = jsx:encode(#{<<"repo">> => Repo,
-                        <<"revision">> => Revision,
-                        <<"root_hash">> => RootHash,
-                        <<"api_version">> => ApiVersion}),
-    {ok, ConnPid} = gun:open("localhost", 8081),
+publish(Repo, Manifest) ->
+    Body = jsx:encode(#{<<"version">> => ?API_VER,
+                        <<"timestamp">> => <<"now">>,
+                        <<"type">> => <<"activity">>,
+                        <<"repository">> => Repo,
+                        <<"manifest">> => Manifest}),
+    {ok, ConnPid} = gun:open("localhost", ?PORT),
     {ok, http} = gun:await_up(ConnPid),
     StreamRef = gun:post(ConnPid,
                          ?API_ROOT ++ "/publish",
