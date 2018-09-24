@@ -10,7 +10,7 @@ from urllib.request import urlopen
 import requests
 
 
-def do_trigger(url, repo, manifest, verbose):
+def do_publish(url, repo, manifest, verbose):
     data = {'version': 1,
             'timestamp': '19 Sep 2018 13:14:15',
             'type': 'activity',
@@ -28,7 +28,7 @@ def do_trigger(url, repo, manifest, verbose):
 
 def main():
     usage = "{}\n\n{}".format("Usage: %prog [options] URL REPO_NAME MANIFEST",
-                              "Ex: %prog localhost:8081/api/v1/trigger my_repo http://hostname.cern.ch/cvmfs/my_repo/.cvmfspublished")
+                              "Ex: %prog localhost:8081/api/v1/publish my_repo http://hostname.cern.ch/cvmfs/my_repo/.cvmfspublished")
 
     parser = OptionParser(usage)
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
@@ -51,7 +51,7 @@ def main():
         print("  manifest: {}".format(manifest))
         print()
 
-    do_trigger(url, repo_name, manifest, options.verbose)
+    do_publish(url, repo_name, manifest, options.verbose)
 
 
 if __name__ == '__main__':
