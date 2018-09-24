@@ -1,8 +1,8 @@
 # Language doesn't matter in this case, since we are building in Docker
-language: c++
+language: erlang
 
-services:
-  - docker
+otp_release:
+  - 21.0
 
 notifications:
   email:
@@ -12,4 +12,7 @@ notifications:
     on_failure: always
 
 script:
-  - ./ci/travis_main.sh
+  - rebar3 as test dialyzer
+  - rebar3 as test ct
+  - rebar3 as prod release
+  - rebar3 as prod tar
