@@ -1,0 +1,13 @@
+[Unit]
+Description=CernVM-FS Notification System
+After=syslog.target network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh start
+ExecStop=/usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh stop
+ExecReload=/usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh reload
+User=root
+
+[Install]
+WantedBy=multi-user.target
