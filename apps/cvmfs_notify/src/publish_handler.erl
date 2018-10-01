@@ -30,7 +30,7 @@ init(Req0 = #{method := <<"POST">>}, State) ->
 
     {Status, Reply} = case message:validate(Body) of
                           {ok, Repo} ->
-                              lager:debug("Publish request: repo: ~p, msg: ~p", [Repo, Body]),
+                              lager:debug("Publish request: ~p", [Body]),
                               publisher:send(Repo, Body),
                               {200, #{<<"status">> => <<"ok">>}};
                           {error, Reason} ->
