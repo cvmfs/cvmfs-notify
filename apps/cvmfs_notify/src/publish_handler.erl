@@ -43,7 +43,10 @@ init(Req0 = #{method := <<"POST">>}, State) ->
                             Req1),
 
     util:req_tock(Uid, URI, T0, micro_seconds),
-    {ok, ReqF, State}.
+    {ok, ReqF, State};
+init(Req0, State) ->
+    Req1 = cowboy_req:reply(405, Req0),
+    {ok, Req1, State}.
 
 
 read_body(Req0) ->
