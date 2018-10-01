@@ -1,7 +1,7 @@
 [
  {lager, [{log_root, "/var/log/cvmfs-notify"},
           {crash_log, "crash.log"},
-          {handlers, [{lager_console_backend, [{level, info}]},
+          {handlers, [{lager_console_backend, [{level, debug}]},
                       {lager_file_backend, [{file, "main.log"}, {level, info}]}]},
           {extra_sinks, [{error_logger_lager_event, [{handlers, [{lager_file_backend, [{file, "error.log"}, {level, info}]}]}]}]}]},
 
