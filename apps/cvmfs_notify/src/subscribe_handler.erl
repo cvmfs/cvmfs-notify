@@ -52,8 +52,8 @@ websocket_init(State) ->
     lager:debug("Websocket upgrade successful - State: ~p", [State]),
     {ok, #{}, hibernate}.
 
-websocket_handle({binary, Msg} = Frame, State) ->
-    lager:debug("Frame received from client: ~p, state: ~p", [Frame, State]),
+websocket_handle({binary, Msg}, State) ->
+    lager:debug("Frame received from client: ~p, state: ~p", [Msg, State]),
     case jsx:is_json(Msg) of
         true ->
             case jsx:decode(Msg, [return_maps]) of
@@ -85,8 +85,8 @@ websocket_handle({ping, Msg}, State) ->
     lager:debug("Ping received with data: ~p", [Msg]),
     {ok, State, hibernate}.
 
-websocket_info({activity, Msg} = Info, State) ->
-    lager:debug("Message received from backend: ~p, state: ~p", [Info, State]),
+websocket_info({activity, Msg}, State) ->
+    lager:debug("Message received from backend: ~p, state: ~p", [Msg, State]),
     {reply, {binary, Msg}, State, hibernate};
 websocket_info(Info, State) ->
     lager:notice("Unknown message received: ~p, state: ~p", [Info, State]),
