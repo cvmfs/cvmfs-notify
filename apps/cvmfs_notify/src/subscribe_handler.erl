@@ -81,8 +81,8 @@ websocket_handle({binary, Msg}, State) ->
                                   <<"reason">> => <<"message is not valid JSON">>})},
              State, hibernate}
     end;
-websocket_handle({ping, Msg}, State) ->
-    lager:debug("Ping received with data: ~p", [Msg]),
+websocket_handle({ping, _Msg}, State) ->
+    lager:debug("Ping received from: ~p", [self()]),
     {ok, State, hibernate}.
 
 websocket_info({activity, Msg}, State) ->
