@@ -1,0 +1,3 @@
+%post
+
+export RUNNER_LOG_DIR=/var/log/cvmfs-notify-runner

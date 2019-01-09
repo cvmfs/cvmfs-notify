@@ -1,7 +1,7 @@
 {
     "port": 4930,
     "rabbitmq": {
-        "url": "cvm-perf03.cern.ch",
+        "url": "<NOTIFICATION_SERVER_URLS",
         "exchange": "repository_activity",
         "port": 5672
     }
