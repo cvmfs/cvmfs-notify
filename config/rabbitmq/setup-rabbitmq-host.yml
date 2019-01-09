@@ -1,0 +1,39 @@
+---
+- name: Set up RabbitMQ
+  hosts: cvmfs_notify_hosts
+  remote_user: root
+  become: yes
+  tags: rabbitmq
+  tasks:
+    - name: Install prerequisites
+      yum: name="wget,unzip,rabbitmq-server"
+
+    - name: Start Firewalld
+      service: name=firewalld enabled=yes state=started
+    - name: Open firewall port tcp:80 for Websockets
+      firewalld: service=http permanent=true state=enabled
+    - name: Open firewall ports 5671 and 5672
+      firewalld: port=5671-5672/tcp permanent=true state=enabled
+    - name: Open firewall ports 15672 for the management console
+      firewalld: port=15672/tcp permanent=true state=enabled
+    - name: Reload Firewalld
+      service: name=firewalld enabled=yes state=reloaded
+
+    - name: Start RabbitMQ server
+      systemd: name=rabbitmq-server enabled=yes state=started
+
+    - name: Configure RabbitMQ - vhost, users, enable plugins
+      script: configure_rabbitmq.sh {{ admin_user }} {{ admin_pass }} {{ publisher_user }} {{ publisher_pass }} {{ subscriber_user }} {{ subscriber_pass }}
+
+    - name: Increase max number of open file descriptors for the rabbitmq user
+      copy: src="20-nofile.conf" dest="/etc/security/limits.d/"
+
+    - name: Create directory /etc/systemd/system/rabbitmq-server.service.d/
+      file: path=/etc/systemd/system/rabbitmq-server.service.d state=directory
+
+    - name: Increase max number of open file descriptors (RabbitMQ setting)
+      copy: src="rabbitmq-limits.conf" dest="/etc/systemd/system/rabbitmq-server.service.d/limits.conf"
+
+    - name: Restart RabbitMQ server
+      systemd: name=rabbitmq-server enabled=yes daemon_reload=yes state=restarted
+
