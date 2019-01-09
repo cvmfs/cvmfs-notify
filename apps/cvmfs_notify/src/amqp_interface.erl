@@ -28,6 +28,18 @@ connect(Creds) ->
     {ok, Channel} = amqp_connection:open_channel(Connection),
     Exchange = maps:get(exchange, Creds),
 
+
+    ExchangeDeclaration = #'exchange.declare'{exchange = Exchange,
+                                              type = <<"direct">>,
+                                              passive = false,
+                                              durable = true,
+                                              auto_delete = false,
+                                              internal = false,
+                                              nowait = false,
+                                              arguments = []},
+
+    #'exchange.declare_ok'{} = amqp_channel:call(Channel, ExchangeDeclaration),
+
     #{connection => Connection,
       channel => Channel,
       exchange => Exchange}.
