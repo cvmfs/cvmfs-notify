@@ -59,7 +59,6 @@ fpm -s dir -t deb \
     --exclude etc/logrotate.d \
     --exclude etc/systemd/system \
     --no-deb-systemd-restart-after-upgrade \
-    --after-install ${BUILD_LOCATION}/scripts/setup_deb.sh \
     --chdir $WORKSPACE \
     ./
 popd
