@@ -31,7 +31,7 @@ fi
 # Add and configure the publisher user
 if [ x"$(rabbitmqctl list_users | grep '^${publisher_user}' | wc -l)" = x"0" ]; then
     rabbitmqctl add_user ${publisher_user} ${publisher_pass}
-    rabbitmqctl set_permissions -p /cvmfs ${publisher_user} "^(amq\.gen.*)$" "^(amq\.gen.*|repository\_activity)$" ".*"
+    rabbitmqctl set_permissions -p /cvmfs ${publisher_user} "^(amq\.gen.*|repository\_activity)$" "^(amq\.gen.*|repository\_activity)$" ".*"
 fi
 
 # Add and configure the subscriber user
