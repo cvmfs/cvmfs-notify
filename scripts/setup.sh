@@ -11,7 +11,9 @@ set -e
 SCRIPT_LOCATION=$(cd "$(dirname "$0")"; pwd)
 
 # Install syslog configuration file
-if [ x"$(which systemctl)" != x"" ]; then
+ if [ x"$(which systemctl)" != x"" ]; then
+    sudo cp -v $SCRIPT_LOCATION/90-cvmfs-notify-rotate-systemd /etc/logrotate.d/
+    sudo systemctl restart rsyslog
     sudo cp $SCRIPT_LOCATION/cvmfs-notify.service /etc/systemd/system/cvmfs-notify.service
     sudo systemctl daemon-reload
 fi

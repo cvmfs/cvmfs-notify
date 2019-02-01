@@ -1,5 +1,5 @@
 %preun
 
-if [ "x$(systemctl list-unit-files | grep cvmfs-gateway)" != "x" ]; then
+if [ "x$(systemctl list-unit-files | grep cvmfs-notify)" != "x" ]; then
     systemctl stop cvmfs-notify
 fi

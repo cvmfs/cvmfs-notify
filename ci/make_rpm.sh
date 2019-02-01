@@ -33,11 +33,19 @@ togo file exclude root/usr/libexec
 
 # Place and flag config files in the togo workspace
 
+# systemlog configuration
+mkdir -p root/etc/logrotate.d
+togo file exclude root/etc/logrotate.d
+
 mkdir -p root/etc/systemd/system
 togo file exclude root/etc/systemd/system
 cp -v root/usr/libexec/cvmfs-notify/scripts/cvmfs-notify.service \
         root/etc/systemd/system/
 togo file flag config-nr root/etc/systemd/system/cvmfs-notify.service
+
+cp -v root/usr/libexec/cvmfs-notify/scripts/90-cvmfs-notify-rotate-systemd \
+    root/etc/logrotate.d
+togo file flag config-nr root/etc/logrotate.d/90-cvmfs-notify-rotate-systemd
 
 # cvmfs-notify configuration files
 mkdir -p root/etc/cvmfs/notify

@@ -35,6 +35,10 @@ mkdir -p $WORKSPACE
 mkdir -p $WORKSPACE/usr/libexec/cvmfs-notify
 tar xzf ${BUILD_LOCATION}/$TARBALL -C $WORKSPACE/usr/libexec/cvmfs-notify
 
+mkdir -p $WORKSPACE/etc/logrotate.d
+cp -v ${BUILD_LOCATION}/scripts/90-cvmfs-notify-rotate-systemd \
+    $WORKSPACE/etc/logrotate.d/
+
 mkdir -p $WORKSPACE/etc/systemd/system
 cp -v ${BUILD_LOCATION}/scripts/cvmfs-notify.service \
     $WORKSPACE/etc/systemd/system/
@@ -50,7 +54,9 @@ fpm -s dir -t deb \
     --license "BSD-3-Clause" \
     --depends "cvmfs-server > 2.5.1" \
     --directories usr/libexec/cvmfs-notify \
+    --config-files etc/logrotate.d/90-cvmfs-notify-rotate-systemd \
     --config-files etc/systemd/system/cvmfs-notify.service \
+    --exclude etc/logrotate.d \
     --exclude etc/systemd/system \
     --no-deb-systemd-restart-after-upgrade \
     --chdir $WORKSPACE \
