@@ -92,14 +92,17 @@ read_config_file(File) ->
 read_env_vars() ->
     F = fun({Key, Type}, EnvVarName, Acc) ->
         case os:getenv(EnvVarName) of
-            false ->
-                Acc;
-            I when Type == int ->
-                maps:put(Key, list_to_integer(I), Acc);
-            S when Type == string ->
-                maps:put(Key, list_to_binary(S), Acc);
-            A when Type == atom ->
-                maps:put(Key, list_to_atom(A), Acc)
+            Val when is_list(Val), length(Val) > 0 ->
+                case Type of
+                    int ->
+                        maps:put(Key, list_to_integer(Val), Acc);
+                    string ->
+                        maps:put(Key, list_to_binary(Val), Acc);
+                    atom ->
+                        maps:put(Key, list_to_atom(Val), Acc)
+                    end;
+            _ ->
+                Acc
             end
     end,
 
