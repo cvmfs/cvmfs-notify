@@ -3,11 +3,10 @@ Description=CernVM-FS Notification System
 After=syslog.target network.target
 
 [Service]
-Type=simple
-Environment="RUNNER_LOG_DIR=/var/log/cvmfs-notify-runner"
-ExecStart=/usr/libexec/cvmfs-notify/bin/cvmfs_notify foreground
-PIDFile=/var/run/cvmfs-notify.pid
-StandardOutput=journal
+Type=forking
+ExecStart=/usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh start
+ExecStop=/usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh stop
+ExecReload=/usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh reload
 Restart=always
 RestartSec=5
 User=root
