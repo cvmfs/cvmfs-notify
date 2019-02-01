@@ -52,13 +52,13 @@ fpm -s dir -t deb \
     --description "CernVM-FS Notification Server" \
     --url "http://cernvm.cern.ch" \
     --license "BSD-3-Clause" \
-    --depends "cvmfs-server > 2.5.1" \
     --directories usr/libexec/cvmfs-notify \
     --config-files etc/logrotate.d/90-cvmfs-notify-rotate-systemd \
     --config-files etc/systemd/system/cvmfs-notify.service \
     --exclude etc/logrotate.d \
     --exclude etc/systemd/system \
     --no-deb-systemd-restart-after-upgrade \
+    --after-install ${BUILD_LOCATION}/scripts/setup.sh \
     --chdir $WORKSPACE \
     ./
 popd
