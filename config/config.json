@@ -1,7 +1,6 @@
 {
     "port": 4930,
     "log_level": "info",
-    "testing_mode" : true,
     "amqp": {
         "url": "localhost",
         "exchange": "repository_activity",
