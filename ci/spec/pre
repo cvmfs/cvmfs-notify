@@ -1,3 +1,5 @@
 %pre
 
-systemctl stop cvmfs-notify
+if [ "x$(systemctl list-unit-files | grep cvmfs-gateway)" != "x" ]; then
+    systemctl stop cvmfs-notify
+fi
