@@ -43,7 +43,7 @@ init_per_suite(Config) ->
     application:ensure_all_started(gun),
 
     ok = application:load(cvmfs_notify),
-    ok = application:set_env(cvmfs_notify, testing_mode, true),
+    ok = application:set_env(cvmfs_notify, user_config, #{testing_mode => true}),
     {ok, _} = application:ensure_all_started(cvmfs_notify),
     Config.
 
