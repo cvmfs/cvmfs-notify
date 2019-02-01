@@ -1,11 +1,3 @@
 %pre
 
-if [ x"$(pidof systemd >/dev/null && echo yes || echo no)" = "xyes" ]; then
-    if [ "x$(systemctl list-unit-files | grep cvmfs-notify)" != "x" ]; then
-        systemctl stop cvmfs-notify
-    fi
-else
-    if [ -x /usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh ]; then
-        /usr/libexec/cvmfs-notify/scripts/run_cvmfs_notify.sh stop || true
-    fi
-fi
+systemctl stop cvmfs-notify
