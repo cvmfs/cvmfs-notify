@@ -43,40 +43,17 @@ req_tock(Uid, URI, T0, Unit) ->
 
 
 read_vars() ->
-    DefaultVars = default_config(),
-    RmqDefaultVars = maps:get(rabbitmq, DefaultVars),
-
-    FileVars0 = maps:merge(DefaultVars, read_vars(user_config)),
-    RmqFileVars = maps:get(rabbitmq, FileVars0, #{}),
-    FileVars = maps:put(rabbitmq,
-                        maps:merge(RmqDefaultVars, RmqFileVars),
-                        FileVars0),
-
-    AMQPUser = os:getenv("CVMFS_NOTIFY_AMQP_USERNAME"),
-    AMQPPass = os:getenv("CVMFS_NOTIFY_AMQP_PASSWORD"),
-
-    RmqVars = maps:get(rabbitmq, FileVars),
-
-    EnvVars = case lists:all(
-        fun(V) -> (V =/= false) and (V =/= []) end,
-        [AMQPUser, AMQPPass]) of
-        true ->
-            #{user => list_to_binary(AMQPUser),
-              pass => list_to_binary(AMQPPass)};
-        _ ->
-            #{}
-    end,
-    MergedRmqVars = maps:merge(RmqVars, EnvVars),
-    maps:merge(FileVars, #{rabbitmq => MergedRmqVars}).
+    DefaultVars = default_vars(),
+    FileVars = read_vars(user_config),
+    EnvVars = read_env_vars(),
+    maps:merge(maps:merge(DefaultVars, FileVars), EnvVars).
 
 
 set_lager_log_level(LogLevel) ->
-    Levels = [<<"debug">>, <<"info">>, <<"notice">>, <<"warning">>,
-              <<"error">>, <<"critical">>, <<"alert">>, <<"emergency">>],
+    Levels = [debug, info, notice, warning, error, critical, alert, emergency],
     case lists:member(LogLevel, Levels) of
         true ->
-            lager:set_loglevel(lager_file_backend, "main.log",
-                               erlang:binary_to_atom(LogLevel, latin1)),
+            lager:set_loglevel(lager_console_backend, LogLevel),
             ok;
         false ->
             error
@@ -100,15 +77,56 @@ read_vars(VarName) ->
 read_config_file(File) ->
     case file:read_file(File) of
         {ok, Data} ->
-            jsx:decode(Data, [{labels, atom}, return_maps]);
+            V = jsx:decode(Data, [{labels, atom}, return_maps]),
+            case maps:is_key(log_level, V) of
+                true ->
+                    LogLevel = maps:get(log_level, V),
+                    maps:update(log_level, binary_to_atom(LogLevel, latin1), V);
+                false ->
+                    V
+                end;
         {error, Reason} ->
             {error, Reason}
     end.
 
-default_config() ->
+read_env_vars() ->
+    F = fun({Key, Type}, EnvVarName, Acc) ->
+        case os:getenv(EnvVarName) of
+            false ->
+                Acc;
+            I when Type == int ->
+                maps:put(Key, list_to_integer(I), Acc);
+            S when Type == string ->
+                maps:put(Key, list_to_binary(S), Acc);
+            A when Type == atom ->
+                maps:put(Key, list_to_atom(A), Acc)
+            end
+    end,
+
+    RmqVars = maps:fold(F, #{}, #{{user, string} => "CVMFS_NOTIFY_AMQP_USERNAME",
+                                  {pass, string} => "CVMFS_NOTIFY_AMQP_PASSWORD",
+                                  {url, string} => "CVMFS_NOTIFY_AMQP_URL",
+                                  {port, int} => "CVMFS_NOTIFY_AMQP_PORT",
+                                  {exchange, string} => "CVMFS_NOTIFY_AMQP_EXCHANGE"}),
+
+    MainVars = maps:fold(F, #{}, #{{port, int} => "CVMFS_NOTIFY_PORT",
+                                   {testing_mode, atom} => "CVMFS_NOTIFY_TESTING_MODE",
+                                   {log_level, atom} => "CVMFS_NOTIFY_LOG_LEVEL"}),
+
+    case RmqVars of
+        #{} ->
+            MainVars;
+        _ ->
+            maps:put(amqp, RmqVars, MainVars)
+        end.
+
+default_vars() ->
     #{port => 4930,
-      rabbitmq => #{url => <<"localhost">>,
-                    exchange => <<"repository_activity">>,
-                    port => 5672,
-                    user => not_given,
-                    pass => not_given}}.
+      testing_mode => false,
+      log_level => info,
+      amqp => #{user => <<"">>,
+                pass => <<"">>,
+                url => <<"localhost">>,
+                exchange => <<"repository_activity">>,
+                port => 5672
+      }}.

@@ -32,7 +32,7 @@ start_link(Args) ->
 %%====================================================================
 
 init({Args, AMQPModule}) ->
-    Credentials = maps:get(rabbitmq, Args),
+    Credentials = maps:get(amqp, Args),
 
     SupervisorSpecs = #{strategy => one_for_all,
                         intensity => 5,

@@ -22,17 +22,17 @@
 start(_StartType, _StartArgs) ->
     UserVars = util:read_vars(),
 
-    LogLevel = maps:get(log_level, UserVars, <<"info">>),
+    LogLevel = maps:get(log_level, UserVars),
     ok = util:set_lager_log_level(LogLevel),
 
     TcpPort = maps:get(port, UserVars),
     {ok, _} = front_end:start_link([TcpPort]),
 
     % Use the mocked AMQP interface for testing?
-    AMQPModule = case application:get_env(testing_mode) of
-      undefined ->
+    AMQPModule = case maps:get(testing_mode, UserVars, false) of
+      false ->
         amqp_interface;
-      _ ->
+      true ->
         mock_amqp_interface
     end,
 

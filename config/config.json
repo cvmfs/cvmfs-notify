@@ -1,7 +1,9 @@
 {
     "port": 4930,
-    "rabbitmq": {
-        "url": "<NOTIFICATION_SERVER_URLS",
+    "log_level": "info",
+    "testing_mode" : true,
+    "amqp": {
+        "url": "localhost",
         "exchange": "repository_activity",
         "port": 5672
     }
