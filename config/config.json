@@ -3,7 +3,7 @@
     "log_level": "info",
     "amqp": {
         "url": "localhost",
-        "exchange": "repository_activity",
+        "exchange": "repository.activity",
         "port": 5672
     }
 }
