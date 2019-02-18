@@ -1,19 +1,19 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc AMQP publisher
+%%% @doc AMQP consumer
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(publisher).
-
--compile([{parse_transform, lager_transform}]).
+-module(cvmfs_consumer).
 
 -behaviour(gen_server).
 
+-compile([{parse_transform, lager_transform}]).
+
 %% API
--export([start_link/1, send/2]).
+-export([start_link/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -33,30 +33,15 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Args) ->
+-spec start_link(Args, Repo) ->
     {ok, Pid} | ignore | {error, Error}
                               when Args :: term(),
+                                   Repo :: binary(),
                                    Pid :: pid(),
                                    Error :: {already_start, pid()} | term().
-start_link(Args) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
+start_link(Args, Repo) ->
+    gen_server:start_link(?MODULE, {Args, Repo}, []).
 
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Publish a message related to a repository
-%%
-%% @spec send(Repo, Msg) -> {ok | {error, Reason}
-%% @end
-%%--------------------------------------------------------------------
--spec send(Repo:: binary(), Msg :: binary()) -> ok.
-send(Repo, Msg) ->
-    gen_server:call(?MODULE, {send_msg, Repo, Msg}).
-
-
-%%===================================================================
-%% gen_server callbacks
-%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private
@@ -69,10 +54,12 @@ send(Repo, Msg) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init({Args, AMQPModule}) ->
-    ConnectionState = AMQPModule:connect(Args),
-    lager:info("Publisher started"),
-    {ok, {ConnectionState, AMQPModule}}.
+init({{Credentials, AMQPModule}, Repo}) ->
+    ConnectionState = AMQPModule:connect(Credentials),
+    AMQPModule:consume(ConnectionState, Repo),
+    lager:info("Consumer started for repository: ~p", [Repo]),
+
+    {ok, {maps:put(repo_name, Repo, ConnectionState), AMQPModule}}.
 
 
 %%--------------------------------------------------------------------
@@ -89,9 +76,9 @@ init({Args, AMQPModule}) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({send_msg, Repo, Msg}, _From, {State, AMQPModule}) ->
-    AMQPModule:publish(Repo, Msg, State),
-    {reply, ok, {State, AMQPModule}}.
+handle_call(Msg, _From, State) ->
+    lager:notice("Call received: ~p", [Msg]),
+    {reply, {}, State}.
 
 
 %%--------------------------------------------------------------------
@@ -119,9 +106,12 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) ->
-    lager:notice("Unknown message received: ~p", [Info]),
-    {noreply, State}.
+handle_info(Msg, {State, AMQPModule}) ->
+    HandleFun = fun(Repo, Payload) ->
+        cvmfs_subscriptions:notify(Repo, Payload)
+    end,
+    AMQPModule:handle(Msg, State, HandleFun),
+    {noreply, {State, AMQPModule}}.
 
 
 %%--------------------------------------------------------------------

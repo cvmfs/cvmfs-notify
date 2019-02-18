@@ -6,7 +6,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(subscriptions).
+-module(cvmfs_subscriptions).
 
 -behaviour(gen_server).
 
@@ -210,7 +210,7 @@ p_subscribe(Pid, Repo) ->
     ets:insert(monitors, #mon{uid = Ref, repo = Repo}),
 
     % Ensure that a backend message consumer is started for the repository
-    consumer_mgr:ensure_started(Repo),
+    cvmfs_consumer_mgr:ensure_started(Repo),
 
     ok.
 

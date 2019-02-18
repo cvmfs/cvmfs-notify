@@ -1,19 +1,21 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc AMQP consumer
+%%% @doc Consumer manager keeps track of consumers
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(consumer).
+-module(cvmfs_consumer_mgr).
+
+-include_lib("amqp_client/include/amqp_client.hrl").
 
 -behaviour(gen_server).
 
 -compile([{parse_transform, lager_transform}]).
 
 %% API
--export([start_link/2]).
+-export([start_link/0, ensure_started/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -33,14 +35,26 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Args, Repo) ->
-    {ok, Pid} | ignore | {error, Error}
-                              when Args :: term(),
-                                   Repo :: binary(),
+-spec start_link() -> {ok, Pid} | ignore | {error, Error}
+                            when Pid :: pid(),
+                                 Error :: {already_start, pid()} | term().
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Start a new AMQP consumer for the given repository name
+%%
+%% @spec ensure_started(Repo) -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+-spec ensure_started(Repo) -> {ok, Pid} | ignore | {error, Error}
+                              when Repo :: binary(),
                                    Pid :: pid(),
                                    Error :: {already_start, pid()} | term().
-start_link(Args, Repo) ->
-    gen_server:start_link(?MODULE, {Args, Repo}, []).
+ensure_started(Repo) ->
+    gen_server:call(?MODULE, {ensure_started, Repo}).
 
 
 %%--------------------------------------------------------------------
@@ -54,12 +68,9 @@ start_link(Args, Repo) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init({{Credentials, AMQPModule}, Repo}) ->
-    ConnectionState = AMQPModule:connect(Credentials),
-    AMQPModule:consume(ConnectionState, Repo),
-    lager:info("Consumer started for repository: ~p", [Repo]),
-
-    {ok, {maps:put(repo_name, Repo, ConnectionState), AMQPModule}}.
+init([]) ->
+    lager:info("Consumer manager started."),
+    {ok, gb_sets:new()}.
 
 
 %%--------------------------------------------------------------------
@@ -76,9 +87,15 @@ init({{Credentials, AMQPModule}, Repo}) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(Msg, _From, State) ->
-    lager:notice("Call received: ~p", [Msg]),
-    {reply, {}, State}.
+handle_call({ensure_started, Repo}, _From, Consumers) ->
+    NewConsumers = case gb_sets:is_element(Repo, Consumers) of
+        false ->
+            cvmfs_consumer_sup:start_consumer(Repo),
+            gb_sets:add_element(Repo, Consumers);
+        true ->
+            Consumers
+    end,
+    {reply, {}, NewConsumers}.
 
 
 %%--------------------------------------------------------------------
@@ -106,12 +123,9 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Msg, {State, AMQPModule}) ->
-    HandleFun = fun(Repo, Payload) ->
-        subscriptions:notify(Repo, Payload)
-    end,
-    AMQPModule:handle(Msg, State, HandleFun),
-    {noreply, {State, AMQPModule}}.
+handle_info(Msg, State) ->
+    lager:notice("Unknown message received: ~p", [Msg]),
+    {noreply, State}.
 
 
 %%--------------------------------------------------------------------
@@ -139,5 +153,5 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, _Extra) ->
-    lager:info("Code change request received. Old version: ~p", [OldVsn]),
+    lager:notice("Code change request received. Old version: ~p", [OldVsn]),
     {ok, State}.

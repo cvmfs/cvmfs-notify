@@ -6,7 +6,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(consumer_sup).
+-module(cvmfs_consumer_sup).
 
 -behaviour(supervisor).
 
@@ -41,12 +41,12 @@ init(Args) ->
                         intensity => 5,
                         period => 5},
     WorkerSpecs = [
-      #{id => consumer,
-        start => {consumer, start_link, [Args]},
+      #{id => cvmfs_consumer,
+        start => {cvmfs_consumer, start_link, [Args]},
         restart => permanent,
         shutdown => 2000,
         type => worker,
-        modules => [consumer]}
+        modules => [cvmfs_consumer]}
      ],
 
     lager:info("Consumer supervisor started"),

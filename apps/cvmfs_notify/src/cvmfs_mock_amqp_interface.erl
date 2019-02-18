@@ -6,7 +6,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(mock_amqp_interface).
+-module(cvmfs_mock_amqp_interface).
 
 -compile([{parse_transform, lager_transform}]).
 
@@ -17,7 +17,7 @@ connect(_) ->
     #{}.
 
 publish(Repo, Msg, _) ->
-    subscriptions:notify(Repo, Msg),
+    cvmfs_subscriptions:notify(Repo, Msg),
     ok.
 
 consume(_, _) ->

@@ -1,12 +1,12 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc subsribe_handler - HTTP request handler for /subscribe
+%%% @doc HTTP request handler for /subscribe
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(subscribe_handler).
+-module(cvmfs_subscribe_handler).
 
 -compile([{parse_transform, lager_transform}]).
 
@@ -24,8 +24,8 @@
 %% @end
 %%--------------------------------------------------------------------
 init(Req0, State) ->
-    Uid = util:unique_id(),
-    {URI, T0} = util:req_tick(Uid, Req0, micro_seconds),
+    Uid = cvmfs_util:unique_id(),
+    {URI, T0} = cvmfs_util:req_tick(Uid, Req0, micro_seconds),
 
     Reply = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req0) of
                 undefined ->
@@ -42,7 +42,7 @@ init(Req0, State) ->
                     end
             end,
 
-    util:req_tock(Uid, URI, T0, micro_seconds),
+    cvmfs_util:req_tock(Uid, URI, T0, micro_seconds),
     Reply.
 
 
@@ -60,7 +60,7 @@ websocket_handle({binary, Msg}, State) ->
                 #{<<"version">> := _Version,
                   <<"repository">> := Repo} ->
                     lager:debug("Subscription request: repo: ~p, pid: ~p", [Repo, self()]),
-                    case subscriptions:subscribe(self(), Repo) of
+                    case cvmfs_subscriptions:subscribe(self(), Repo) of
                         ok ->
                             {ok, State, hibernate};
                         {error, Reason} ->

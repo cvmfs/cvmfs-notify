@@ -1,12 +1,12 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc publish_handler - HTTP request handler for /publish
+%%% @doc HTTP request handler for /publish
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(publish_handler).
+-module(cvmfs_publish_handler).
 
 -compile([{parse_transform, lager_transform}]).
 
@@ -23,18 +23,18 @@
 %% @end
 %%--------------------------------------------------------------------
 init(Req0 = #{method := <<"POST">>}, State) ->
-    Uid = util:unique_id(),
-    {URI, T0} = util:req_tick(Uid, Req0, micro_seconds),
+    Uid = cvmfs_util:unique_id(),
+    {URI, T0} = cvmfs_util:req_tick(Uid, Req0, micro_seconds),
 
     {ok, Body, Req1} = read_body(Req0),
 
-    {Status, Reply} = case message:validate(Body) of
+    {Status, Reply} = case cvmfs_message:validate(Body) of
                           {ok, Repo} ->
                               lager:debug("Publish request: ~p", [Body]),
-                              publisher:send(Repo, Body),
+                              cvmfs_publisher:send(Repo, Body),
                               {200, #{<<"status">> => <<"ok">>}};
                           {error, Reason} ->
-                              {400, util:error_map(Reason)}
+                              {400, cvmfs_util:error_map(Reason)}
                       end,
 
     ReqF = cowboy_req:reply(Status,
@@ -42,7 +42,7 @@ init(Req0 = #{method := <<"POST">>}, State) ->
                             jsx:encode(Reply),
                             Req1),
 
-    util:req_tock(Uid, URI, T0, micro_seconds),
+    cvmfs_util:req_tock(Uid, URI, T0, micro_seconds),
     {ok, ReqF, State};
 init(Req0, State) ->
     Req1 = cowboy_req:reply(405, Req0),

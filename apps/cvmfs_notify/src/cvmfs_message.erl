@@ -6,7 +6,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(message).
+-module(cvmfs_message).
 
 -export([validate/1]).
 

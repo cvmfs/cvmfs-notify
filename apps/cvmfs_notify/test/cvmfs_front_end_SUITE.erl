@@ -7,7 +7,7 @@
 %%%
 %%%-------------------------------------------------------------------
 
--module(front_end_SUITE).
+-module(cvmfs_front_end_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").

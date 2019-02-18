@@ -6,7 +6,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(amqp_interface).
+-module(cvmfs_amqp_interface).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 

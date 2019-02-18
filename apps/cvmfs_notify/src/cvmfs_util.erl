@@ -6,7 +6,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(util).
+-module(cvmfs_util).
 
 -compile([{parse_transform, lager_transform}]).
 

@@ -6,7 +6,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(front_end).
+-module(cvmfs_front_end).
 
 -compile([{parse_transform, lager_transform}]).
 
@@ -26,15 +26,15 @@
 start_link([TcpPort]) ->
     Dispatch = cowboy_router:compile([{'_', [
                                              {?API_ROOT ++ "/subscribe",
-                                              subscribe_handler,
+                                              cvmfs_subscribe_handler,
                                               []},
                                              {?API_ROOT ++ "/publish",
-                                              publish_handler,
+                                              cvmfs_publish_handler,
                                               []}
                                             ]}]),
 
     %% Start the HTTP listener process configured with the routing table
-    FE = cowboy:start_clear(front_end,
+    FE = cowboy:start_clear(cvmfs_front_end,
                             [{port, TcpPort}],
                             #{env => #{dispatch => Dispatch},
                               idle_timeout => ?TIMEOUT,

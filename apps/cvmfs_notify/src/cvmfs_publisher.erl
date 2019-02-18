@@ -1,21 +1,19 @@
 %%%-------------------------------------------------------------------
 %%% This file is part of the CernVM File System.
 %%%
-%%% @doc Consumer manager keeps track of consumers
+%%% @doc AMQP publisher
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 
--module(consumer_mgr).
-
--include_lib("amqp_client/include/amqp_client.hrl").
-
--behaviour(gen_server).
+-module(cvmfs_publisher).
 
 -compile([{parse_transform, lager_transform}]).
 
+-behaviour(gen_server).
+
 %% API
--export([start_link/0, ensure_started/1]).
+-export([start_link/1, send/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -35,27 +33,30 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
--spec start_link() -> {ok, Pid} | ignore | {error, Error}
-                            when Pid :: pid(),
-                                 Error :: {already_start, pid()} | term().
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+-spec start_link(Args) ->
+    {ok, Pid} | ignore | {error, Error}
+                              when Args :: term(),
+                                   Pid :: pid(),
+                                   Error :: {already_start, pid()} | term().
+start_link(Args) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
 
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Start a new AMQP consumer for the given repository name
+%% Publish a message related to a repository
 %%
-%% @spec ensure_started(Repo) -> {ok, Pid} | ignore | {error, Error}
+%% @spec send(Repo, Msg) -> {ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
--spec ensure_started(Repo) -> {ok, Pid} | ignore | {error, Error}
-                              when Repo :: binary(),
-                                   Pid :: pid(),
-                                   Error :: {already_start, pid()} | term().
-ensure_started(Repo) ->
-    gen_server:call(?MODULE, {ensure_started, Repo}).
+-spec send(Repo:: binary(), Msg :: binary()) -> ok.
+send(Repo, Msg) ->
+    gen_server:call(?MODULE, {send_msg, Repo, Msg}).
 
+
+%%===================================================================
+%% gen_server callbacks
+%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private
@@ -68,9 +69,10 @@ ensure_started(Repo) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-    lager:info("Consumer manager started."),
-    {ok, gb_sets:new()}.
+init({Args, AMQPModule}) ->
+    ConnectionState = AMQPModule:connect(Args),
+    lager:info("Publisher started"),
+    {ok, {ConnectionState, AMQPModule}}.
 
 
 %%--------------------------------------------------------------------
@@ -87,15 +89,9 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({ensure_started, Repo}, _From, Consumers) ->
-    NewConsumers = case gb_sets:is_element(Repo, Consumers) of
-        false ->
-            consumer_sup:start_consumer(Repo),
-            gb_sets:add_element(Repo, Consumers);
-        true ->
-            Consumers
-    end,
-    {reply, {}, NewConsumers}.
+handle_call({send_msg, Repo, Msg}, _From, {State, AMQPModule}) ->
+    AMQPModule:publish(Repo, Msg, State),
+    {reply, ok, {State, AMQPModule}}.
 
 
 %%--------------------------------------------------------------------
@@ -123,8 +119,8 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Msg, State) ->
-    lager:notice("Unknown message received: ~p", [Msg]),
+handle_info(Info, State) ->
+    lager:notice("Unknown message received: ~p", [Info]),
     {noreply, State}.
 
 
@@ -153,5 +149,5 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, _Extra) ->
-    lager:notice("Code change request received. Old version: ~p", [OldVsn]),
+    lager:info("Code change request received. Old version: ~p", [OldVsn]),
     {ok, State}.

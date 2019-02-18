@@ -20,20 +20,20 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    UserVars = util:read_vars(),
+    UserVars = cvmfs_util:read_vars(),
 
     LogLevel = maps:get(log_level, UserVars),
-    ok = util:set_lager_log_level(LogLevel),
+    ok = cvmfs_util:set_lager_log_level(LogLevel),
 
     TcpPort = maps:get(port, UserVars),
-    {ok, _} = front_end:start_link([TcpPort]),
+    {ok, _} = cvmfs_front_end:start_link([TcpPort]),
 
     % Use the mocked AMQP interface for testing?
     AMQPModule = case maps:get(testing_mode, UserVars, false) of
       false ->
-        amqp_interface;
+        cvmfs_amqp_interface;
       true ->
-        mock_amqp_interface
+        cvmfs_mock_amqp_interface
     end,
 
     cvmfs_notify_sup:start_link({UserVars, AMQPModule}).
