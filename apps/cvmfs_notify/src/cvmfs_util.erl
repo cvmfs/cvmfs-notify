@@ -130,6 +130,6 @@ default_vars() ->
       amqp => #{user => <<"">>,
                 pass => <<"">>,
                 url => <<"localhost">>,
-                exchange => <<"repository_activity">>,
+                exchange => <<"repository.activity">>,
                 port => 5672
       }}.
