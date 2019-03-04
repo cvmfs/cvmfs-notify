@@ -12,8 +12,8 @@
       service: name=firewalld enabled=yes state=started
     - name: Open firewall port tcp:80 for Websockets
       firewalld: service=http permanent=true state=enabled
-    - name: Open firewall ports 5671 and 5672
-      firewalld: port=5671-5672/tcp permanent=true state=enabled
+    - name: Open firewall ports 5672
+      firewalld: port=5672/tcp permanent=true state=enabled
     - name: Open firewall ports 15672 for the management console
       firewalld: port=15672/tcp permanent=true state=enabled
     - name: Reload Firewalld
@@ -23,7 +23,7 @@
       systemd: name=rabbitmq-server enabled=yes state=started
 
     - name: Configure RabbitMQ - vhost, users, enable plugins
-      script: configure_rabbitmq.sh {{ admin_user }} {{ admin_pass }} {{ publisher_user }} {{ publisher_pass }} {{ subscriber_user }} {{ subscriber_pass }}
+      script: configure_rabbitmq.sh {{ admin_user }} {{ admin_pass }} {{ worker_user }} {{ worker_pass }}
 
     - name: Increase max number of open file descriptors for the rabbitmq user
       copy: src="20-nofile.conf" dest="/etc/security/limits.d/"
