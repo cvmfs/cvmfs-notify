@@ -110,6 +110,7 @@ read_env_vars() ->
                                   {pass, string} => "CVMFS_NOTIFY_AMQP_PASSWORD",
                                   {url, string} => "CVMFS_NOTIFY_AMQP_URL",
                                   {port, int} => "CVMFS_NOTIFY_AMQP_PORT",
+                                  {vhost, string} => "CVMFS_NOTIFY_AMQP_VHOST",
                                   {exchange, string} => "CVMFS_NOTIFY_AMQP_EXCHANGE"}),
 
     MainVars = maps:fold(F, #{}, #{{port, int} => "CVMFS_NOTIFY_PORT",
@@ -131,5 +132,6 @@ default_vars() ->
                 pass => <<"">>,
                 url => <<"localhost">>,
                 exchange => <<"repository.activity">>,
+                vhost => <<"/cvmfs">>,
                 port => 5672
       }}.

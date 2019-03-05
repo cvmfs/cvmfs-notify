@@ -18,7 +18,7 @@ connect(Creds) ->
     Params = #amqp_params_network{
                   username = maps:get(user, Creds),
 				  password = maps:get(pass, Creds),
-				  virtual_host = <<"/cvmfs">>,
+				  virtual_host = maps:get(vhost, Creds),
 				  host = binary_to_list(maps:get(url, Creds)),
 				  port = maps:get(port, Creds),
 				  channel_max = 2047, frame_max = 0,
